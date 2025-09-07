@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 
 export default function Editor() {
-  const { request, auth } = useAuth()
+  const { request, auth, ui } = useAuth()
   const { id } = useParams()
   const nav = useNavigate()
   const [form, setForm] = useState({ title: '', content: '', tags: '', categories: [], status: 'pending', thumbnail_url: '', thumbnail_path: '' })
@@ -14,6 +14,7 @@ export default function Editor() {
   const [allCategories, setAllCategories] = useState([])
   const [thumbFile, setThumbFile] = useState(null)
   const fileRef = useRef(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -33,6 +34,7 @@ export default function Editor() {
   const onSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSaving(true)
     try {
       let thumbnail_url = form.thumbnail_url || ''
       let thumbnail_path = form.thumbnail_path || ''
@@ -64,9 +66,12 @@ export default function Editor() {
       }
       if (id) await request(`/articles/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
       else await request('/articles', { method: 'POST', body: JSON.stringify(payload) })
+      ui?.notify?.('Saved successfully', 'success')
       nav('/dashboard')
     } catch (e) {
       setError(e.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -111,7 +116,9 @@ export default function Editor() {
           </select>
         </label>
         {error && <p className="error">{error}</p>}
-        <button className="btn btn-primary" type="submit">Save</button>
+        <button className={`btn btn-primary ${saving ? 'loading' : ''}`} type="submit" disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
       </form>
       <div className="card" style={{ marginTop: 16 }}>
         <h3 className="card-title">Preview</h3>

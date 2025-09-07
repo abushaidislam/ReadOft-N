@@ -8,13 +8,17 @@ a { color: var(--text); text-decoration: none }
 .nav { position: sticky; top: 0; z-index: 10; background: rgba(11,12,16,0.8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border) }
 .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 }
 .brand { font-weight: 700; letter-spacing: 0.4px }
-.links a { margin-right: 16px; color: var(--muted) }
+.links a { position:relative; margin-right: 16px; color: var(--muted); padding-bottom: 4px }
+.links a::after { content:''; position:absolute; left:0; right:0; bottom:0; height:2px; background: linear-gradient(90deg, var(--primary), var(--accent)); transform: scaleX(0); transform-origin: left; transition: transform .25s ease }
+.links a:hover::after { transform: scaleX(1) }
 .auth { display: flex; gap: 8px; align-items: center }
 .user-chip { color: var(--muted); font-size: 0.9rem }
 
 .btn { background: #1b1f2a; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px }
 .btn-primary { background: var(--primary); border-color: var(--primary) }
 .btn:focus { outline: none }
+.btn:hover { filter: brightness(1.05) }
+.btn.loading, .btn:disabled { opacity:.7; cursor:not-allowed }
 
 .page { padding: 24px 0 }
 .page-head { display: flex; align-items: center; justify-content: space-between }
@@ -104,6 +108,19 @@ h1,h2,h3 { margin: 10px 0 }
 .skeleton .skeleton-line::after,
 .skeleton .skeleton-chip::after { content:''; position:absolute; inset:0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); transform: translateX(-100%); animation: shimmer 1.2s infinite }
 @keyframes shimmer { 100% { transform: translateX(100%) } }
+
+/* Global loader overlay */
+.global-loader { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.25); z-index: 50 }
+.spinner { width:36px; height:36px; border-radius:999px; border:3px solid rgba(255,255,255,.2); border-top-color: #c7d2fe; animation: spin .8s linear infinite }
+@keyframes spin { to { transform: rotate(360deg) } }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0 }
+
+/* Toasts */
+.toast-wrap { position: fixed; right: 16px; bottom: 16px; display:flex; flex-direction:column; gap:8px; z-index:60 }
+.toast { background:#0f1320; border:1px solid var(--border); color:#e5e7eb; padding:10px 12px; border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,.25); transition: transform .2s, opacity .2s }
+.toast.success { border-color: rgba(16,185,129,.5) }
+.toast.error { border-color: rgba(239,68,68,.5) }
+.toast.info { border-color: rgba(99,102,241,.5) }
 
 /* Markdown content */
 .markdown { line-height: 1.7 }

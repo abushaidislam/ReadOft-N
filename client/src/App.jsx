@@ -13,11 +13,34 @@ import Admin from './pages/Admin'
 import ProtectedRoute from './routes/ProtectedRoute'
 import Feed from './pages/Feed'
 import Author from './pages/Author'
+import { useAuth } from './state/AuthContext.jsx'
+
+function GlobalUI() {
+  const { ui } = useAuth()
+  return (
+    <>
+      {ui.busy && (
+        <div className="global-loader" role="status" aria-live="polite">
+          <div className="spinner" />
+          <span className="sr-only">Loading…</span>
+        </div>
+      )}
+      <div className="toast-wrap">
+        {ui.toasts.map((t) => (
+          <div key={t.id} className={`toast ${t.type}`} onClick={() => ui.dismiss(t.id)}>
+            {t.message}
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Navbar />
+      <GlobalUI />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
