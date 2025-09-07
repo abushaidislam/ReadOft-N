@@ -7,7 +7,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import Comments from '../components/Comments.jsx'
 
 export default function Article() {
-  const { id } = useParams()
+  const { id, slug } = useParams()
   const { request } = useAuth()
   const [article, setArticle] = useState(null)
   const [error, setError] = useState('')
@@ -15,11 +15,9 @@ export default function Article() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    request(`/articles/${id}`).then(setArticle).catch((e) => setError(e.message))
-    // check like status if logged in (will 401 when not authed)
-    request(`/likes/status/${id}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {})
-    request(`/bookmarks/status/${id}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {})
-  }, [id])
+    const path = slug ? `/articles/slug/${slug}` : `/articles/${id}`
+    request(path).then((a) => { setArticle(a); const aid = a.id; request(`/likes/status/${aid}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {}); request(`/bookmarks/status/${aid}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {}) }).catch((e) => setError(e.message))
+  }, [id, slug])
 
   useEffect(() => {
     const start = Date.now()

@@ -14,6 +14,7 @@ export function AuthProvider({ children }) {
   const toastId = useRef(1)
   const [notifs, setNotifs] = useState([])
   const [unread, setUnread] = useState(0)
+  const esRef = useRef(null)
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(auth))
@@ -52,7 +53,6 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const data = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
-    // fetch full profile to get avatar_url etc.
     const me = await request('/me', { headers: { Authorization: `Bearer ${data.token}` }, noGlobalLoading: true })
     setAuth({ token: data.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
   }
@@ -64,6 +64,50 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => setAuth({ token: null, user: null })
+
+  async function loadNotifications() {
+    try {
+      const data = await request('/notifications', { noGlobalLoading: true })
+      setNotifs(Array.isArray(data) ? data : [])
+      setUnread((data || []).filter((n) => !n.is_read).length)
+    } catch {}
+  }
+  async function markAllRead() {
+    try { await request('/notifications/read-all', { method: 'POST' }); setNotifs((prev)=>prev.map(n=>({ ...n, is_read:true }))); setUnread(0) } catch {}
+  }
+  async function markRead(id) {
+    try { await request(`/notifications/${id}/read`, { method: 'POST' }); setNotifs((prev)=>prev.map(n=>n.id===id?{...n,is_read:true}:n)); setUnread((c)=>Math.max(0,c-1)) } catch {}
+  }
+
+  function startNotifStream() {
+    try {
+      if (!auth.token || esRef.current) return
+      const url = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api') + `/notifications/stream?token=${encodeURIComponent(auth.token)}`
+      const es = new EventSource(url)
+      es.onmessage = (ev) => {
+        try {
+          const n = JSON.parse(ev.data)
+          setNotifs((prev) => [n, ...prev].slice(0, 100))
+          if (!n.is_read) setUnread((c) => c + 1)
+        } catch {}
+      }
+      es.onerror = () => {
+        try { es.close() } catch {}
+        esRef.current = null
+        setTimeout(startNotifStream, 3000)
+      }
+      esRef.current = es
+    } catch {}
+  }
+  function stopNotifStream() {
+    try { esRef.current?.close() } catch {}
+    esRef.current = null
+  }
+
+  useEffect(() => {
+    if (auth.token) startNotifStream(); else stopNotifStream()
+    return () => stopNotifStream()
+  }, [auth.token])
 
   const value = useMemo(() => ({
     auth,
@@ -82,26 +126,13 @@ export function AuthProvider({ children }) {
       loadNotifications,
       markAllRead,
       markRead,
+      startNotifStream,
+      stopNotifStream,
     }
   }), [auth, busyCount, toasts, notifs, unread])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-
-  async function loadNotifications() {
-    try {
-      const data = await request('/notifications', { noGlobalLoading: true })
-      setNotifs(Array.isArray(data) ? data : [])
-      setUnread((data || []).filter((n) => !n.is_read).length)
-    } catch {}
-  }
-
-  async function markAllRead() {
-    try { await request('/notifications/read-all', { method: 'POST' }); setNotifs((prev)=>prev.map(n=>({ ...n, is_read:true }))); setUnread(0) } catch {}
-  }
-  async function markRead(id) {
-    try { await request(`/notifications/${id}/read`, { method: 'POST' }); setNotifs((prev)=>prev.map(n=>n.id===id?{...n,is_read:true}:n)); setUnread((c)=>Math.max(0,c-1)) } catch {}
-  }
 
 export function useAuth() {
   const ctx = useContext(AuthContext)

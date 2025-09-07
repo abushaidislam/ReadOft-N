@@ -24,6 +24,11 @@ a { color: var(--text); text-decoration: none }
 .notif-item { padding:8px 0; border-bottom:1px solid var(--border) }
 .notif-item:last-child { border-bottom:0 }
 .notif-item.unread { background: rgba(99,102,241,.08) }
+.notif-media { display:flex; align-items:center; gap:10px }
+.notif-avatar { width:28px; height:28px; border-radius:999px; object-fit:cover; border:1px solid var(--border); background:#1b2030; color:#cbd5e1; display:inline-grid; place-items:center; font-size:.8rem; font-weight:700 }
+.notif-fallback { letter-spacing:.2px }
+.notif-content { display:flex; flex-direction:column; gap:2px; flex:1 }
+.notif-thumb { width:56px; height:36px; border-radius:6px; border:1px solid var(--border); object-fit:cover }
 
 .btn { background: #1b1f2a; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px }
 .btn-primary { background: var(--primary); border-color: var(--primary) }

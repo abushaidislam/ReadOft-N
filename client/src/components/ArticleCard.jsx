@@ -12,7 +12,7 @@ export default function ArticleCard({ article, index = 0 }) {
           className="thumb"
         />
       ) : null}
-      <h3 className="card-title"><Link to={`/article/${article.id}`}>{article.title}</Link></h3>
+      <h3 className="card-title"><Link to={article.slug ? `/a/${article.slug}` : `/article/${article.id}`}>{article.title}</Link></h3>
       <p className="muted">{created} • ♥ {article.like_count ?? 0}</p>
       <p className="line-clamp">{excerpt}{excerpt.length >= 160 ? '…' : ''}</p>
       <div className="chips" style={{ marginTop: 8, alignItems:'center' }}>

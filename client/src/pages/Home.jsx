@@ -22,7 +22,8 @@ export default function Home() {
     params.set('page', String(page))
     params.set('limit', '12')
     params.set('sort', '-created_at')
-    const data = await request(`/articles?${params.toString()}`, { noGlobalLoading: true })
+    const endpoint = q ? '/search' : '/articles'
+    const data = await request(`${endpoint}?${params.toString()}`, { noGlobalLoading: true })
     setItems(data.items)
     setPageInfo(data.pageInfo || null)
     setLoading(false)

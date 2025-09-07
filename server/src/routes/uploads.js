@@ -11,7 +11,21 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 async function ensureBucketPublic(name) {
   // Try to get; if not found or error, attempt to create. Ignore "already exists".
   const { data, error } = await supabase.storage.getBucket(name)
-  if (data && !error) return
+  if (data && !error) {
+    // Ensure bucket is public if it already exists
+    if (data.public !== true) {
+      try {
+        await supabase.storage.updateBucket(name, {
+          public: true,
+          fileSizeLimit: 5 * 1024 * 1024,
+          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+        })
+      } catch (e) {
+        // best-effort; continue
+      }
+    }
+    return
+  }
   const { error: createErr } = await supabase.storage.createBucket(name, {
     public: true,
     fileSizeLimit: 5 * 1024 * 1024, // ~5MB

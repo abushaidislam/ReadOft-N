@@ -1,6 +1,8 @@
 import express from 'express'
+import jwt from 'jsonwebtoken'
 import { authRequired } from '../middleware/auth.js'
 import { supabase } from '../supabase.js'
+import { addClient, removeClient } from '../utils/notifyHub.js'
 
 const router = express.Router()
 
@@ -61,3 +63,26 @@ router.post('/notifications/read-all', authRequired, async (_req, res) => {
 
 export default router
 
+// Server-Sent Events stream for notifications (token via query param)
+router.get('/notifications/stream', async (req, res) => {
+  try {
+    const token = req.query.token
+    if (!token || typeof token !== 'string') return res.status(401).end()
+    let user
+    try { user = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret') } catch { return res.status(401).end() }
+    const userId = user.id
+    if (!userId) return res.status(401).end()
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+    res.flushHeaders?.()
+    res.write(`event: ping\n`)
+    res.write(`data: connected\n\n`)
+    addClient(userId, res)
+    req.on('close', () => removeClient(userId, res))
+  } catch {
+    try { res.status(500).end() } catch {}
+  }
+})

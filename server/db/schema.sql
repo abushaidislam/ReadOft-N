@@ -34,6 +34,13 @@ create table if not exists articles (
 -- Add thumbnail column for articles
 alter table articles add column if not exists thumbnail_url text not null default '';
 alter table articles add column if not exists thumbnail_path text not null default '';
+-- SEO friendly slug and full text search
+alter table articles add column if not exists slug text unique;
+alter table articles add column if not exists search tsvector generated always as (
+  to_tsvector('english', coalesce(title,'') || ' ' || coalesce(content,''))
+) stored;
+create index if not exists idx_articles_slug on articles(slug);
+create index if not exists idx_articles_search on articles using gin(search);
 
 -- Likes (unique by user/article)
 create table if not exists article_likes (

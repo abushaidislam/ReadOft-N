@@ -48,6 +48,7 @@ function App() {
         <Route path="/categories" element={<Categories />} />
         <Route path="/category/:slug" element={<Category />} />
         <Route path="/article/:id" element={<Article />} />
+        <Route path="/a/:slug" element={<Article />} />
         <Route path="/author/:id" element={<Author />} />
         <Route element={<ProtectedRoute roles={["reader","author","admin"]} />}> 
           <Route path="/feed" element={<Feed />} />
