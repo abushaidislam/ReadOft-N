@@ -1,0 +1,70 @@
+:root { --bg: #0b0c10; --card: #111318; --text: #e5e7eb; --muted: #9aa3b2; --primary: #6366f1; --border: #1f2530; --accent: #10b981; }
+* { box-sizing: border-box }
+html, body, #root { height: 100% }
+body { margin: 0; font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
+a { color: var(--text); text-decoration: none }
+.container { max-width: 1100px; margin: 0 auto; padding: 0 16px }
+
+.nav { position: sticky; top: 0; z-index: 10; background: rgba(11,12,16,0.8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border) }
+.nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 }
+.brand { font-weight: 700; letter-spacing: 0.4px }
+.links a { margin-right: 16px; color: var(--muted) }
+.auth { display: flex; gap: 8px; align-items: center }
+.user-chip { color: var(--muted); font-size: 0.9rem }
+
+.btn { background: #1b1f2a; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px }
+.btn-primary { background: var(--primary); border-color: var(--primary) }
+.btn:focus { outline: none }
+
+.page { padding: 24px 0 }
+.page-head { display: flex; align-items: center; justify-content: space-between }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px }
+.grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+
+.card { background: var(--card); border: 1px solid var(--border); padding: 16px; border-radius: 12px }
+.card-title { margin: 0 0 8px 0 }
+.line-clamp { overflow: hidden; text-overflow: ellipsis }
+.muted { color: var(--muted) }
+
+.filters { display: flex; gap: 8px; margin-bottom: 16px }
+input, textarea, select { width: 100%; padding: 10px 12px; background: #0f1320; color: var(--text); border-radius: 8px; border: 1px solid var(--border) }
+textarea { resize: vertical }
+.form { display: grid; gap: 10px }
+.narrow { max-width: 700px; margin: 0 auto }
+.error { color: #ef4444 }
+
+.tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #0f1320; color: var(--muted); border: 1px solid var(--border); margin-right: 6px }
+.chips { display: flex; gap: 8px; flex-wrap: wrap }
+.chip { background: #0f1320; border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 999px }
+.badge { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: #0f1320; text-transform: capitalize }
+.badge.published { background: rgba(16,185,129,.1); border-color: rgba(16,185,129,.4) }
+.badge.pending { background: rgba(99,102,241,.12); border-color: rgba(99,102,241,.4) }
+.badge.draft { background: rgba(148,163,184,.12); border-color: rgba(148,163,184,.3) }
+
+.table { width: 100%; border-collapse: collapse }
+.table th, .table td { border-bottom: 1px solid var(--border); padding: 10px; text-align: left }
+
+h1,h2,h3 { margin: 10px 0 }
+
+/* Markdown content */
+.markdown { line-height: 1.7 }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 { margin: 1rem 0 .5rem }
+.markdown p { margin: .5rem 0 }
+.markdown ul, .markdown ol { padding-left: 1.25rem; margin: .5rem 0 }
+.markdown li { margin: .25rem 0 }
+.markdown blockquote { margin: .75rem 0; padding: .5rem .75rem; border-left: 3px solid var(--primary); background: #0f1320; color: var(--muted) }
+.markdown code { background: #0f1320; padding: .1rem .35rem; border-radius: 4px; border: 1px solid var(--border); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
+.markdown pre { background: #0f1320; padding: .75rem; border-radius: 8px; border: 1px solid var(--border); overflow: auto }
+.markdown pre code { border: 0; padding: 0; background: transparent }
+
+/* Markdown content */
+.markdown { line-height: 1.7 }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 { margin: 1rem 0 .5rem }
+.markdown p { margin: .5rem 0 }
+.markdown ul, .markdown ol { padding-left: 1.25rem; margin: .5rem 0 }
+.markdown li { margin: .25rem 0 }
+.markdown blockquote { margin: .75rem 0; padding: .5rem .75rem; border-left: 3px solid var(--primary); background: #0f1320; color: var(--muted) }
+.markdown code { background: #0f1320; padding: .1rem .35rem; border-radius: 4px; border: 1px solid var(--border); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
+.markdown pre { background: #0f1320; padding: .75rem; border-radius: 8px; border: 1px solid var(--border); overflow: auto }
+.markdown pre code { border: 0; padding: 0; background: transparent }

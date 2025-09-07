@@ -1,0 +1,19 @@
+import { Link } from 'react-router-dom'
+
+export default function ArticleCard({ article }) {
+  return (
+    <article className="card">
+      {article.thumbnail_url ? (
+        <img src={article.thumbnail_url} alt="thumbnail" style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} />
+      ) : null}
+      <h3 className="card-title"><Link to={`/article/${article.id}`}>{article.title}</Link></h3>
+      <p className="muted">{new Date(article.created_at).toLocaleDateString()} • ❤ {article.like_count}</p>
+      <p className="line-clamp">{article.content?.slice(0, 150)}...</p>
+      <div className="tags">
+        {(article.categories || []).map((c) => (
+          <Link className="tag" key={c} to={`/category/${c}`}>{c}</Link>
+        ))}
+      </div>
+    </article>
+  )
+}
