@@ -37,6 +37,10 @@ textarea { resize: vertical }
 .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #0f1320; color: var(--muted); border: 1px solid var(--border); margin-right: 6px }
 .chips { display: flex; gap: 8px; flex-wrap: wrap }
 .chip { background: #0f1320; border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 999px }
+.author-chip { display:inline-flex; align-items:center; gap:8px; padding: 4px 8px }
+.avatar { width:20px; height:20px; border-radius:999px; object-fit:cover; display:inline-block }
+.avatar-fallback { display:inline-grid; place-items:center; background:#1b2030; width:20px; height:20px; border-radius:999px; font-size:.7rem; color:#cbd5e1; border:1px solid var(--border) }
+.author-name { color:#cbd5e1 }
 .badge { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: #0f1320; text-transform: capitalize }
 .badge.published { background: rgba(16,185,129,.1); border-color: rgba(16,185,129,.4) }
 .badge.pending { background: rgba(99,102,241,.12); border-color: rgba(99,102,241,.4) }

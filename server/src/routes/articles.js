@@ -23,10 +23,11 @@ router.get('/', authOptional, async (req, res) => {
     const allowedSort = ['created_at', 'like_count', 'title']
     const orderKey = allowedSort.includes(sortKey) ? sortKey : 'created_at'
 
-    // base query
+    // base query with author join (minimal fields)
+    const select = `id,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
     let query = supabase
       .from('articles')
-      .select('*', { count: 'exact' })
+      .select(select, { count: 'exact' })
       .order(orderKey, { ascending: !desc, nullsFirst: false })
       .range(start, end)
     const u = req.user
@@ -56,7 +57,8 @@ router.get('/', authOptional, async (req, res) => {
 router.get('/:id', authOptional, async (req, res) => {
   try {
     const id = req.params.id
-    const { data: article, error } = await supabase.from('articles').select('*').eq('id', id).maybeSingle()
+    const select = `id,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
+    const { data: article, error } = await supabase.from('articles').select(select).eq('id', id).maybeSingle()
     if (error) throw error
     if (!article) return res.status(404).json({ message: 'Not found' })
     if (article.status !== 'published') {
