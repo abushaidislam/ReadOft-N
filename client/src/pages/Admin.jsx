@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
 
 export default function Admin() {
-  const { request } = useAuth()
+  const { request, ui } = useAuth()
   const [users, setUsers] = useState([])
   const [pending, setPending] = useState([])
   const [categories, setCategories] = useState([])
@@ -29,31 +29,37 @@ export default function Admin() {
 
   const setRole = async (id, role) => {
     await request(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) })
+    ui.notify('Role updated', 'success')
     load()
   }
 
   const approve = async (id) => {
     await request(`/articles/${id}/approve`, { method: 'POST' })
+    ui.notify('Article approved', 'success')
     load()
   }
 
   const deleteArticle = async (id) => {
     if (!confirm('Delete this article? This cannot be undone.')) return
     await request(`/articles/${id}`, { method: 'DELETE' })
+    ui.notify('Article deleted', 'success')
     load()
   }
 
   const addCategory = async () => {
     if (!catName.trim()) return
     await request('/categories', { method: 'POST', body: JSON.stringify({ name: catName, slug: catSlug || undefined }) })
+    ui.notify('Category added', 'success')
     setCatName(''); setCatSlug(''); load()
   }
   const updateCategory = async (id, patch) => {
     await request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(patch) })
+    ui.notify('Category updated', 'success')
     load()
   }
   const deleteCategory = async (id) => {
     await request(`/categories/${id}`, { method: 'DELETE' })
+    ui.notify('Category deleted', 'success')
     load()
   }
 
