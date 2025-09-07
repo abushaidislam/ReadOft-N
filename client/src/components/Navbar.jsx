@@ -1,9 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import { useState } from 'react'
 
 export default function Navbar() {
   const { auth, logout } = useAuth()
   const nav = useNavigate()
+  const [open, setOpen] = useState(false)
   const onLogout = () => {
     logout()
     nav('/')
@@ -12,7 +14,12 @@ export default function Navbar() {
     <header className="nav">
       <div className="container nav-inner">
         <Link to="/" className="brand">{import.meta.env.VITE_APP_NAME || 'Readoft'}</Link>
-        <nav className="links">
+        <button className="mobile-toggle" aria-label="Toggle menu" onClick={() => setOpen(v => !v)}>
+          <span className={open ? 'bar rotate-45' : 'bar'}></span>
+          <span className={open ? 'bar opacity-0' : 'bar'}></span>
+          <span className={open ? 'bar -rotate-45' : 'bar'}></span>
+        </button>
+        <nav className={`links ${open ? 'open' : ''}`} onClick={() => setOpen(false)}>
           <Link to="/">Home</Link>
           {auth.user && <Link to="/feed">Feed</Link>}
           <Link to="/categories">Categories</Link>
@@ -25,7 +32,7 @@ export default function Navbar() {
           ) : null}
           {auth.user?.role === 'admin' && <Link to="/admin">Admin</Link>}
         </nav>
-        <div className="auth">
+        <div className={`auth ${open ? 'open' : ''}`}>
           {auth.user ? (
             <>
               <span className="user-chip">{auth.user.name} • {auth.user.role}</span>

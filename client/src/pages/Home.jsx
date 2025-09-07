@@ -33,6 +33,17 @@ export default function Home() {
 
   return (
     <div className="container page">
+      <section className="hero">
+        <div className="hero-inner">
+          <h1 className="hero-title">Read. Write. Discover.</h1>
+          <p className="hero-sub">Fresh articles from authors you follow and love.</p>
+          <div className="hero-cta">
+            <a className="btn btn-primary" href="#feed">Explore Articles</a>
+            <a className="btn" href="/register">Join Free</a>
+          </div>
+        </div>
+        <div className="hero-glow" aria-hidden="true" />
+      </section>
       <div className="filters">
         <input placeholder="Search title..." value={q} onChange={(e) => setQ(e.target.value)} />
         <input placeholder="Tag" value={tag} onChange={(e) => setTag(e.target.value)} />
@@ -44,10 +55,25 @@ export default function Home() {
         </select>
         <button className="btn" onClick={fetchData}>Apply</button>
       </div>
-      {loading ? <p>Loading...</p> : (
+      {loading ? (
+        <div className="grid" id="feed">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div className="card skeleton" key={i}>
+              <div className="skeleton-thumb" />
+              <div className="skeleton-line w-80" />
+              <div className="skeleton-line w-60" />
+              <div className="skeleton-row">
+                <span className="skeleton-chip" />
+                <span className="skeleton-chip" />
+                <span className="skeleton-chip" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
         <>
-          <div className="grid">
-            {items.map((a) => <ArticleCard article={a} key={a.id} />)}
+          <div className="grid" id="feed">
+            {items.map((a, idx) => <ArticleCard article={a} key={a.id} index={idx} />)}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
             <button className="btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
