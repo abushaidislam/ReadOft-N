@@ -1,15 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import { useEffect } from 'react'
 import { useState } from 'react'
 
 export default function Navbar() {
-  const { auth, logout } = useAuth()
+  const { auth, logout, ui } = useAuth()
   const nav = useNavigate()
   const [open, setOpen] = useState(false)
+  const [showNotif, setShowNotif] = useState(false)
   const onLogout = () => {
     logout()
     nav('/')
   }
+  useEffect(() => { if (auth.user) ui.loadNotifications().catch(()=>{}) }, [auth.user])
   return (
     <header className="nav">
       <div className="container nav-inner">
@@ -35,6 +38,28 @@ export default function Navbar() {
         <div className={`auth ${open ? 'open' : ''}`}>
           {auth.user ? (
             <>
+              <button className="bell" aria-label="Notifications" onClick={() => { setShowNotif(s=>!s); if (!showNotif) ui.loadNotifications() }}>
+                <span className="bell-ico">🔔</span>
+                {ui.unread > 0 && <span className="notif-badge">{ui.unread}</span>}
+              </button>
+              {showNotif && (
+                <div className="notif-menu" onMouseLeave={() => setShowNotif(false)}>
+                  <div className="notif-head">
+                    <strong>Notifications</strong>
+                    {ui.unread > 0 && <button className="btn" onClick={() => ui.markAllRead()}>Mark all read</button>}
+                  </div>
+                  <div className="notif-list">
+                    {ui.notifications.length === 0 ? (
+                      <div className="muted" style={{padding:'8px 0'}}>No notifications</div>
+                    ) : ui.notifications.map(n => (
+                      <div key={n.id} className={`notif-item ${n.is_read ? '' : 'unread'}`} onClick={() => ui.markRead(n.id)}>
+                        <NotifText n={n} />
+                        <div className="muted" style={{fontSize:'.75rem'}}>{new Date(n.created_at).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Link to="/profile" className="nav-profile" title={auth.user.name} aria-label="Profile">
                 {auth.user.avatar_url ? (
                   <img src={auth.user.avatar_url} alt="avatar" className="nav-avatar" />
@@ -54,4 +79,13 @@ export default function Navbar() {
       </div>
     </header>
   )
+}
+
+function NotifText({ n }) {
+  const t = n.type
+  const p = n.payload || {}
+  if (t === 'comment_on_article') return <span>New comment on <Link to={`/article/${p.article_id}`}>{p.title || 'your article'}</Link>: {p.excerpt || ''}</span>
+  if (t === 'reply_to_comment') return <span>New reply on a comment — <Link to={`/article/${p.article_id}`}>view</Link></span>
+  if (t === 'article_approved') return <span>Your article approved: <Link to={`/article/${p.article_id}`}>{p.title || 'Article'}</Link></span>
+  return <span>Activity update</span>
 }

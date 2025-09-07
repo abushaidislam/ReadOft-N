@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { authOptional, authRequired } from '../middleware/auth.js'
 import { requireRole, ROLES } from '../utils/roles.js'
 import { validateArticle } from '../models/article.js'
+import { notify } from '../utils/notify.js'
 
 const router = express.Router()
 
@@ -167,6 +168,8 @@ router.post('/:id/approve', authRequired, requireRole(ROLES.ADMIN), async (req, 
     const id = req.params.id
     const { data, error } = await supabase.from('articles').update({ status: 'published', updated_at: new Date() }).eq('id', id).select('*').single()
     if (error) throw error
+    // notify author on approval
+    try { if (data?.author_id) await notify(data.author_id, 'article_approved', { article_id: id, title: data.title }) } catch (e) { console.error('approve notify error', e) }
     res.json(data)
   } catch (e) {
     console.error(e)

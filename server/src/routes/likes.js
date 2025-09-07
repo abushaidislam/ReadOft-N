@@ -73,7 +73,7 @@ router.get('/me', authRequired, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('article_likes')
-      .select('article_id, articles:article_id (id, title, author_id, like_count)')
+      .select('article_id, articles:article_id (id, title, author_id, like_count, thumbnail_url, created_at)')
       .eq('user_id', req.user.id)
     if (error) throw error
     res.json(data?.map((r) => r.articles) ?? [])

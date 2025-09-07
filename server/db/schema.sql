@@ -101,3 +101,24 @@ create table if not exists comments (
 );
 create index if not exists idx_comments_article on comments(article_id, created_at);
 create index if not exists idx_comments_parent on comments(parent_id);
+
+-- Bookmarks (unique by user/article)
+create table if not exists user_bookmarks (
+  user_id uuid not null references users(id) on delete cascade,
+  article_id uuid not null references articles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, article_id)
+);
+create index if not exists idx_bookmarks_user on user_bookmarks(user_id, created_at desc);
+
+-- Notifications
+create table if not exists notifications (
+  id uuid primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  type text not null,
+  payload jsonb not null default '{}',
+  is_read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_notifications_user on notifications(user_id, created_at desc);
+create index if not exists idx_notifications_unread on notifications(user_id, is_read);

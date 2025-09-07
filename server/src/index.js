@@ -13,8 +13,10 @@ import uploadRoutes from './routes/uploads.js'
 import commentRoutes from './routes/comments.js'
 import meRoutes from './routes/me.js'
 import readRoutes from './routes/reads.js'
+import notificationsRoutes from './routes/notifications.js'
 import authorsRoutes from './routes/authors.js'
 import { authOptional } from './middleware/auth.js'
+import bookmarksRoutes from './routes/bookmarks.js'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -36,6 +38,8 @@ app.use('/api/me', meRoutes)
 app.use('/api/reads', readRoutes)
 app.use('/api/authors', authorsRoutes)
 app.use('/api', commentRoutes)
+app.use('/api', bookmarksRoutes)
+app.use('/api', notificationsRoutes)
 
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err)

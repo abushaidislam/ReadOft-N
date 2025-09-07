@@ -12,11 +12,13 @@ export default function Article() {
   const [article, setArticle] = useState(null)
   const [error, setError] = useState('')
   const [liked, setLiked] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     request(`/articles/${id}`).then(setArticle).catch((e) => setError(e.message))
     // check like status if logged in (will 401 when not authed)
     request(`/likes/status/${id}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {})
+    request(`/bookmarks/status/${id}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {})
   }, [id])
 
   useEffect(() => {
@@ -44,11 +46,22 @@ export default function Article() {
   const follow = async () => {
     try { await request(`/follows/${article.author_id}`, { method: 'POST' }) } catch {}
   }
+  const toggleSave = async () => {
+    try {
+      if (!saved) {
+        const r = await request(`/bookmarks/${article.id}`, { method: 'POST' })
+        if (r?.saved) setSaved(true)
+      } else {
+        const r = await request(`/bookmarks/${article.id}`, { method: 'DELETE' })
+        if (r && r.saved === false) setSaved(false)
+      }
+    } catch {}
+  }
 
   return (
     <div className="container page">
       {article.thumbnail_url && (
-        <img src={article.thumbnail_url} alt="thumbnail" style={{ width: '100%', maxHeight: 360, objectFit: 'cover', borderRadius: 12, marginBottom: 16 }} />
+        <img src={article.thumbnail_url} alt="thumbnail" className="hero-thumb" />
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
@@ -60,6 +73,7 @@ export default function Article() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button className="btn btn-primary" onClick={like} disabled={liked}>{liked ? 'Liked' : 'Like'}</button>
         <button className="btn" onClick={follow}>Follow Author</button>
+        <button className="btn" onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</button>
       </div>
       <div className="markdown">
         <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>

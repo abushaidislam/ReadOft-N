@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { authRequired } from '../middleware/auth.js'
 import { supabase } from '../supabase.js'
 import { ROLES } from '../utils/roles.js'
+import { notify } from '../utils/notify.js'
 
 const router = express.Router()
 
@@ -61,6 +62,31 @@ router.post('/articles/:articleId/comments', authRequired, async (req, res) => {
       .select('id, article_id, user_id, content, parent_id, created_at, updated_at')
       .single()
     if (error) throw error
+    // Notifications
+    try {
+      // notify article author for new top-level comments
+      const { data: art, error: aErr } = await supabase
+        .from('articles')
+        .select('author_id, title')
+        .eq('id', article_id)
+        .single()
+      if (!aErr && art?.author_id && art.author_id !== user_id && !parent_id) {
+        await notify(art.author_id, 'comment_on_article', { article_id, comment_id: data.id, title: art.title, excerpt: content.slice(0, 80) })
+      }
+      // notify parent comment owner on replies
+      if (parent_id) {
+        const { data: parent, error: pErr } = await supabase
+          .from('comments')
+          .select('user_id')
+          .eq('id', parent_id)
+          .single()
+        if (!pErr && parent?.user_id && parent.user_id !== user_id) {
+          await notify(parent.user_id, 'reply_to_comment', { article_id, comment_id: data.id, parent_id, excerpt: content.slice(0, 80) })
+        }
+      }
+    } catch (e) {
+      console.error('comment notify error', e)
+    }
     res.status(201).json(data)
   } catch (e) {
     console.error('Create comment error:', e)
@@ -92,4 +118,3 @@ router.delete('/comments/:id', authRequired, async (req, res) => {
 })
 
 export default router
-

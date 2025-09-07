@@ -12,6 +12,8 @@ export function AuthProvider({ children }) {
   const [busyCount, setBusyCount] = useState(0)
   const [toasts, setToasts] = useState([])
   const toastId = useRef(1)
+  const [notifs, setNotifs] = useState([])
+  const [unread, setUnread] = useState(0)
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(auth))
@@ -75,11 +77,31 @@ export function AuthProvider({ children }) {
       toasts,
       notify,
       dismiss,
+      notifications: notifs,
+      unread,
+      loadNotifications,
+      markAllRead,
+      markRead,
     }
-  }), [auth, busyCount, toasts])
+  }), [auth, busyCount, toasts, notifs, unread])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
+
+  async function loadNotifications() {
+    try {
+      const data = await request('/notifications', { noGlobalLoading: true })
+      setNotifs(Array.isArray(data) ? data : [])
+      setUnread((data || []).filter((n) => !n.is_read).length)
+    } catch {}
+  }
+
+  async function markAllRead() {
+    try { await request('/notifications/read-all', { method: 'POST' }); setNotifs((prev)=>prev.map(n=>({ ...n, is_read:true }))); setUnread(0) } catch {}
+  }
+  async function markRead(id) {
+    try { await request(`/notifications/${id}/read`, { method: 'POST' }); setNotifs((prev)=>prev.map(n=>n.id===id?{...n,is_read:true}:n)); setUnread((c)=>Math.max(0,c-1)) } catch {}
+  }
 
 export function useAuth() {
   const ctx = useContext(AuthContext)

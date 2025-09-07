@@ -17,6 +17,13 @@ a { color: var(--text); text-decoration: none }
 .nav-profile { display:inline-flex; align-items:center; margin-right:8px }
 .nav-avatar { width:28px; height:28px; border-radius:999px; object-fit:cover; border:1px solid var(--border); background:#1b2030; color:#cbd5e1; display:inline-grid; place-items:center; font-size:.8rem; font-weight:600 }
 .nav-fallback { letter-spacing:.2px }
+.bell { position:relative; background:#0f1320; border:1px solid var(--border); color:#e5e7eb; border-radius:8px; width:36px; height:36px; display:inline-grid; place-items:center; margin-right:6px }
+.notif-badge { position:absolute; top:-6px; right:-6px; background:#ef4444; color:#fff; font-size:.7rem; border-radius:999px; padding:0 6px; border:2px solid #0b0c10 }
+.notif-menu { position:absolute; right:72px; top:56px; width:320px; background:#0f1320; border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:0 20px 40px rgba(0,0,0,.35); z-index:40 }
+.notif-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px }
+.notif-item { padding:8px 0; border-bottom:1px solid var(--border) }
+.notif-item:last-child { border-bottom:0 }
+.notif-item.unread { background: rgba(99,102,241,.08) }
 
 .btn { background: #1b1f2a; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px }
 .btn-primary { background: var(--primary); border-color: var(--primary) }
@@ -104,6 +111,7 @@ h1,h2,h3 { margin: 10px 0 }
 .card-animated { opacity: 0; animation: fadeUp .5s ease-out forwards }
 @keyframes fadeUp { from { opacity:0; transform: translateY(6px) } to { opacity:1; transform: none } }
 .thumb { width:100%; height:160px; object-fit:cover; border-radius:8px; margin-bottom:8px }
+.hero-thumb { width:100%; height:360px; object-fit:cover; border-radius:12px; margin-bottom:16px; border:1px solid var(--border) }
 
 /* Hero */
 .hero { position:relative; padding: 40px 0 24px; overflow:hidden; }
@@ -137,6 +145,38 @@ h1,h2,h3 { margin: 10px 0 }
 .toast.success { border-color: rgba(16,185,129,.5) }
 .toast.error { border-color: rgba(239,68,68,.5) }
 .toast.info { border-color: rgba(99,102,241,.5) }
+
+/* Profile page */
+.profile-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px }
+.section-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px }
+.profile-header { display:flex; gap:14px; align-items:center }
+.avatar-lg { width:96px; height:96px; border-radius: 50%; border:1px solid var(--border); object-fit:cover; background:#111318 }
+.list-clean { list-style: none; padding-left: 0; margin: 0 }
+.list-clean li { padding: 6px 0; border-bottom: 1px solid var(--border) }
+.list-clean li:last-child { border-bottom: 0 }
+.media-list { list-style:none; padding-left:0; margin:0 }
+.media-item { display:flex; gap:12px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border) }
+.media-item:last-child { border-bottom:0 }
+.thumb-sm { width:64px; height:40px; object-fit:cover; border-radius:8px; border:1px solid var(--border); background:#0f1320 }
+.thumb-empty { display:inline-block }
+.media-body { display:flex; flex-direction:column }
+.stat-grid { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:12px }
+.stat { background:#0f1320; border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center }
+.stat .value { font-size: 1.25rem; font-weight:700 }
+.stat .label { color: var(--muted); font-size:.85rem }
+
+/* Tabs */
+.tabs { display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid var(--border) }
+.tab { background:#0f1320; border:1px solid var(--border); border-bottom:none; color:#e5e7eb; padding:8px 12px; border-top-left-radius:10px; border-top-right-radius:10px; cursor:pointer }
+.tab.active { background:#141a2a }
+.tab:hover { filter: brightness(1.04) }
+
+/* Mini bar chart */
+.bar-chart { display:grid; gap:8px }
+.bar-row { display:grid; grid-template-columns: 64px 1fr 60px; align-items:center; gap:8px }
+.bar-label { color: var(--muted); font-size:.85rem; text-align:right }
+.bar-track { height:10px; background:#0f1320; border:1px solid var(--border); border-radius:8px; overflow:hidden }
+.bar { height:100%; background: linear-gradient(90deg, rgba(99,102,241,.8), rgba(16,185,129,.8)); }
 
 /* Markdown content */
 .markdown { line-height: 1.7 }
