@@ -39,7 +39,7 @@ export default function Profile() {
             const data = await res.json().catch(()=>({}))
             if (!res.ok) { setError(data.message || 'Avatar upload failed'); return }
             const updated = await request('/me', { method:'PUT', body: JSON.stringify({ avatar_url: data.url, avatar_path: data.path }) })
-            setMe(updated); setAuth({ ...auth, user: { ...auth.user, name: updated.name } }); setSuccess('Avatar updated')
+            setMe(updated); setAuth({ ...auth, user: { ...auth.user, name: updated.name, avatar_url: updated.avatar_url } }); setSuccess('Avatar updated')
           }}/>
         </div>
       </div>

@@ -50,12 +50,15 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const data = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
-    setAuth({ token: data.token, user: data.user })
+    // fetch full profile to get avatar_url etc.
+    const me = await request('/me', { headers: { Authorization: `Bearer ${data.token}` }, noGlobalLoading: true })
+    setAuth({ token: data.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
   }
 
   const register = async (name, email, password) => {
     const data = await request('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) })
-    setAuth({ token: data.token, user: data.user })
+    const me = await request('/me', { headers: { Authorization: `Bearer ${data.token}` }, noGlobalLoading: true })
+    setAuth({ token: data.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
   }
 
   const logout = () => setAuth({ token: null, user: null })

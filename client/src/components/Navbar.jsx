@@ -35,7 +35,13 @@ export default function Navbar() {
         <div className={`auth ${open ? 'open' : ''}`}>
           {auth.user ? (
             <>
-              <span className="user-chip">{auth.user.name} • {auth.user.role}</span>
+              <Link to="/profile" className="nav-profile" title={auth.user.name} aria-label="Profile">
+                {auth.user.avatar_url ? (
+                  <img src={auth.user.avatar_url} alt="avatar" className="nav-avatar" />
+                ) : (
+                  <span className="nav-avatar nav-fallback">{(auth.user.name||'U').slice(0,1).toUpperCase()}</span>
+                )}
+              </Link>
               <button className="btn" onClick={onLogout}>Logout</button>
             </>
           ) : (

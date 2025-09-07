@@ -4,6 +4,7 @@ import { useAuth } from '../state/AuthContext.jsx'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
+import Comments from '../components/Comments.jsx'
 
 export default function Article() {
   const { id } = useParams()
@@ -65,7 +66,7 @@ export default function Article() {
           {article.content || ''}
         </ReactMarkdown>
       </div>
+      <Comments articleId={article.id} />
     </div>
   )
 }
-

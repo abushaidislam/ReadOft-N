@@ -10,6 +10,7 @@ import adminRoutes from './routes/admin.js'
 import categoryRoutes from './routes/categories.js'
 import feedRoutes from './routes/feed.js'
 import uploadRoutes from './routes/uploads.js'
+import commentRoutes from './routes/comments.js'
 import meRoutes from './routes/me.js'
 import readRoutes from './routes/reads.js'
 import authorsRoutes from './routes/authors.js'
@@ -34,6 +35,7 @@ app.use('/api/uploads', uploadRoutes)
 app.use('/api/me', meRoutes)
 app.use('/api/reads', readRoutes)
 app.use('/api/authors', authorsRoutes)
+app.use('/api', commentRoutes)
 
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err)

@@ -88,3 +88,16 @@ create table if not exists article_reads (
   primary key (user_id, article_id)
 );
 create index if not exists idx_reads_user_last on article_reads(user_id, last_read_at desc);
+
+-- Comments with threaded replies
+create table if not exists comments (
+  id uuid primary key,
+  article_id uuid not null references articles(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  content text not null,
+  parent_id uuid null references comments(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_comments_article on comments(article_id, created_at);
+create index if not exists idx_comments_parent on comments(parent_id);
