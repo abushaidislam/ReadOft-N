@@ -1,6 +1,7 @@
 @import "./styles/tokens.css";
 
 :root { --bg: #0b0c10; --card: #111318; --text: #e5e7eb; --muted: #9aa3b2; --primary: #6366f1; --border: #1f2530; --accent: #10b981; }
+[data-theme='light'] { --bg: #f9fafb; --card: #ffffff; --text: #111827; --muted: #4b5563; --primary: #6366f1; --border: #e5e7eb; --accent: #10b981; }
 * { box-sizing: border-box }
 html, body, #root { height: 100% }
 body { margin: 0; font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
