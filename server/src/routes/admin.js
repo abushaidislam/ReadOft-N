@@ -34,7 +34,12 @@ router.put('/users/:id/role', authRequired, requireRole(ROLES.ADMIN), async (req
 // List pending articles for approval
 router.get('/articles/pending', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
   try {
-    const { data, error } = await supabase.from('articles').select('*').eq('status', 'pending').order('created_at', { ascending: false })
+    const select = `id,title,author_id,slug,thumbnail_url,created_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
+    const { data, error } = await supabase
+      .from('articles')
+      .select(select)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
     if (error) throw error
     res.json(data)
   } catch (e) {
@@ -44,4 +49,3 @@ router.get('/articles/pending', authRequired, requireRole(ROLES.ADMIN), async (_
 })
 
 export default router
-

@@ -12,6 +12,7 @@ import Editor from './pages/Editor'
 import Profile from './pages/Profile'
 import Article from './pages/Article'
 import Admin from './pages/Admin'
+import AdminCategories from './pages/AdminCategories.jsx'
 import ProtectedRoute from './routes/ProtectedRoute'
 import Feed from './pages/Feed'
 import Author from './pages/Author'
@@ -65,6 +66,7 @@ function App() {
         </Route>
         <Route element={<ProtectedRoute roles={["admin"]} />}> 
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/categories" element={<AdminCategories />} />
         </Route>
       </Routes>
       <Footer />

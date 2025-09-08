@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 
 export default function Admin() {
@@ -9,6 +10,7 @@ export default function Admin() {
   const [catName, setCatName] = useState('')
   const [catSlug, setCatSlug] = useState('')
   const [error, setError] = useState('')
+  const [tab, setTab] = useState('dashboard')
 
   const load = async () => {
     try {
@@ -70,12 +72,30 @@ export default function Admin() {
     load()
   }
 
-  return (
-    <div className="container page">
-      <h2>Admin Panel</h2>
-      {error && <p className="error">{error}</p>}
+  const DashboardView = () => (
     <div className="grid two">
-      <section>
+      <section className="section-card">
+        <h3 style={{marginTop:0}}>Overview</h3>
+        <div className="stat-grid">
+          <div className="stat"><div className="value">{users.length}</div><div className="label">Users</div></div>
+          <div className="stat"><div className="value">{pending.length}</div><div className="label">Pending</div></div>
+          <div className="stat"><div className="value">{categories.length}</div><div className="label">Categories</div></div>
+          <div className="stat"><div className="value">—</div><div className="label">Reports</div></div>
+        </div>
+      </section>
+      <section className="section-card">
+        <h3 style={{marginTop:0}}>Quick actions</h3>
+        <div className="chips">
+          <button className="chip" onClick={()=>setTab('users')}>Manage users</button>
+          <button className="chip" onClick={()=>setTab('pending')}>Review pending</button>
+          <button className="chip" onClick={()=>setTab('categories')}>Edit categories</button>
+        </div>
+      </section>
+    </div>
+  )
+
+  const UsersView = () => (
+      <section className="section-card">
         <h3>Users</h3>
           <table className="table">
             <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead>
@@ -97,7 +117,10 @@ export default function Admin() {
             </tbody>
           </table>
       </section>
-      <section>
+  )
+
+  const PendingView = () => (
+      <section className="section-card">
           <h3>Pending Articles</h3>
           <table className="table">
             <thead><tr><th>Title</th><th>Author</th><th>Actions</th></tr></thead>
@@ -105,7 +128,16 @@ export default function Admin() {
               {pending.map((a) => (
                 <tr key={a.id}>
                   <td>{a.title}</td>
-                  <td>{a.author_id}</td>
+                  <td>
+                    <Link to={`/author/${a.author?.id || a.author_id}`} className="chip author-chip">
+                      {a.author?.avatar_url ? (
+                        <img className="avatar" src={a.author.avatar_url} alt={a.author?.name || 'Author'} />
+                      ) : (
+                        <span className="avatar avatar-fallback">{(a.author?.name || 'A').slice(0,1).toUpperCase()}</span>
+                      )}
+                      <span className="author-name">{a.author?.name || a.author_id}</span>
+                    </Link>
+                  </td>
                   <td style={{display:'flex', gap:8}}>
                     <button className="btn btn-primary" onClick={() => approve(a.id)}>Approve</button>
                     <button className="btn" onClick={() => reject(a.id)}>Reject</button>
@@ -116,8 +148,14 @@ export default function Admin() {
             </tbody>
           </table>
         </section>
-      <section>
+  )
+
+  const CategoriesView = () => (
+      <section className="section-card">
         <h3>Categories</h3>
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
+          <Link className="btn" to="/admin/categories">Open full page</Link>
+        </div>
         <div className="form" style={{marginBottom:12}}>
           <input placeholder="Name" value={catName} onChange={(e) => setCatName(e.target.value)} />
           <input placeholder="Slug (optional)" value={catSlug} onChange={(e) => setCatSlug(e.target.value)} />
@@ -146,7 +184,33 @@ export default function Admin() {
           </tbody>
         </table>
       </section>
-    </div>
+  )
+
+  return (
+    <div className="container page">
+      <h2>Admin Panel</h2>
+      {error && <p className="error">{error}</p>}
+      <div className="admin-layout">
+        <aside className="admin-sidebar">
+          <nav className="admin-nav" aria-label="Admin sections">
+            <button className={`admin-link ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>Dashboard</button>
+            <button className={`admin-link ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>Users</button>
+            <button className={`admin-link ${tab==='pending'?'active':''}`} onClick={()=>setTab('pending')}>Pending Posts {pending.length?`(${pending.length})`:''}</button>
+            <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
+            <div className="muted" style={{ margin:'12px 4px 4px', fontSize:'.85rem' }}>Quick links</div>
+            <Link className="admin-link" to="/editor">New Post</Link>
+            <Link className="admin-link" to="/dashboard">Author Dashboard</Link>
+            <Link className="admin-link" to="/profile">Profile</Link>
+            <Link className="admin-link" to="/">Home</Link>
+          </nav>
+        </aside>
+        <main className="admin-content">
+          {tab==='dashboard' && <DashboardView />}
+          {tab==='users' && <UsersView />}
+          {tab==='pending' && <PendingView />}
+          {tab==='categories' && <CategoriesView />}
+        </main>
+      </div>
     </div>
   )
 }

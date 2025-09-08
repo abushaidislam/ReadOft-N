@@ -47,8 +47,8 @@ export default function Navbar() {
           <Link to="/">Home</Link>
           {auth.user && <Link to="/feed">Feed</Link>}
           <Link to="/categories">Categories</Link>
-          {auth.user && <Link to="/profile">Profile</Link>}
-          {auth.user?.role === 'author' || auth.user?.role === 'admin' ? (
+          {auth.user && auth.user.role !== 'admin' && <Link to="/profile">Profile</Link>}
+          {auth.user?.role === 'author' ? (
             <>
               <Link to="/dashboard">Dashboard</Link>
               <Link to="/editor">New Post</Link>
