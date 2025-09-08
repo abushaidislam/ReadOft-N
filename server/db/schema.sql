@@ -78,6 +78,17 @@ create index if not exists idx_articles_author on articles(author_id);
 create index if not exists idx_articles_tags on articles using gin(tags);
 create index if not exists idx_articles_categories on articles using gin(categories);
 
+-- Article revisions (history snapshots)
+create table if not exists article_revisions (
+  id uuid primary key,
+  article_id uuid not null references articles(id) on delete cascade,
+  author_id uuid not null references users(id) on delete cascade,
+  title text not null,
+  content text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_revisions_article on article_revisions(article_id, created_at desc);
+
 -- Categories master list
 create table if not exists categories (
   id uuid primary key,

@@ -124,6 +124,10 @@ router.post('/', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (re
     validateArticle(payload)
     const { data, error } = await supabase.from('articles').insert(payload).select('*').single()
     if (error) throw error
+    // create initial revision
+    try {
+      await supabase.from('article_revisions').insert({ id: randomUUID(), article_id: data.id, author_id, title: data.title, content: data.content })
+    } catch (e) { console.error('rev create error', e) }
     // If pending, notify admins of submission
     try { if (data?.status === 'pending') await notifyAdminsOfPendingArticle(data.id) } catch (e) { console.error('notify admins create pending', e) }
     // If published immediately, notify followers
@@ -178,6 +182,14 @@ router.put('/:id', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (
 
     const { data, error } = await supabase.from('articles').update(patch).eq('id', id).select('*').single()
     if (error) throw error
+    // add revision on update
+    try {
+      await supabase.from('article_revisions').insert({ id: randomUUID(), article_id: id, author_id: existing.author_id, title: data.title, content: data.content })
+      // keep only latest 20
+      const { data: revs } = await supabase.from('article_revisions').select('id, created_at').eq('article_id', id).order('created_at', { ascending: false })
+      const toDelete = (revs || []).slice(20).map(r => r.id)
+      if (toDelete.length) await supabase.from('article_revisions').delete().in('id', toDelete)
+    } catch (e) { console.error('rev update error', e) }
     // If transitioning to published, notify followers
     try { if (existing.status !== 'published' && data?.status === 'published') await notifyFollowersOfArticle(existing.author_id, id, data.title) } catch (e) { console.error('notify followers update', e) }
     // If transitioning into pending, notify admins
@@ -272,5 +284,43 @@ router.get('/slug/:slug', authOptional, async (req, res) => {
     res.json(article)
   } catch (e) {
     res.status(500).json({ message: 'Failed to fetch by slug' })
+  }
+})
+
+// Revisions: list
+router.get('/:id/revisions', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (req, res) => {
+  try {
+    const id = req.params.id
+    const { data: article, error: aErr } = await supabase.from('articles').select('author_id').eq('id', id).maybeSingle()
+    if (aErr) throw aErr
+    if (!article) return res.status(404).json({ message: 'Not found' })
+    if (req.user.role !== ROLES.ADMIN && article.author_id !== req.user.id) return res.status(403).json({ message: 'Forbidden' })
+    const { data, error } = await supabase.from('article_revisions').select('id,title,created_at').eq('article_id', id).order('created_at', { ascending: false })
+    if (error) throw error
+    res.json(data || [])
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to load revisions' })
+  }
+})
+
+// Revisions: restore
+router.post('/:id/revisions/:revId/restore', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (req, res) => {
+  try {
+    const { id, revId } = req.params
+    const { data: article, error: aErr } = await supabase.from('articles').select('*').eq('id', id).maybeSingle()
+    if (aErr) throw aErr
+    if (!article) return res.status(404).json({ message: 'Not found' })
+    if (req.user.role !== ROLES.ADMIN && article.author_id !== req.user.id) return res.status(403).json({ message: 'Forbidden' })
+    const { data: rev, error: rErr } = await supabase.from('article_revisions').select('*').eq('id', revId).eq('article_id', id).maybeSingle()
+    if (rErr) throw rErr
+    if (!rev) return res.status(404).json({ message: 'Revision not found' })
+    const patch = { title: rev.title, content: rev.content, updated_at: new Date() }
+    const { data, error } = await supabase.from('articles').update(patch).eq('id', id).select('*').single()
+    if (error) throw error
+    // snapshot after restore as well
+    try { await supabase.from('article_revisions').insert({ id: randomUUID(), article_id: id, author_id: article.author_id, title: data.title, content: data.content }) } catch {}
+    res.json(data)
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to restore revision' })
   }
 })

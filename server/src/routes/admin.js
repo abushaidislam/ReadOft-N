@@ -2,6 +2,7 @@ import express from 'express'
 import { supabase } from '../supabase.js'
 import { authRequired } from '../middleware/auth.js'
 import { requireRole, ROLES } from '../utils/roles.js'
+import { notify } from '../utils/notify.js'
 
 const router = express.Router()
 
@@ -70,6 +71,69 @@ router.get('/articles/pending', authRequired, requireRole(ROLES.ADMIN), async (_
   } catch (e) {
     console.error(e)
     res.status(500).json({ message: 'Failed to list pending' })
+  }
+})
+
+// Author role applications via notifications
+router.get('/author-requests', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id, payload, is_read, created_at')
+      .eq('type', 'author_role_request')
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    res.json(data || [])
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to list applications' })
+  }
+})
+
+router.post('/author-requests/:id/approve', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const id = req.params.id
+    const { data: notif, error: nErr } = await supabase
+      .from('notifications')
+      .select('id, payload')
+      .eq('id', id)
+      .eq('type', 'author_role_request')
+      .maybeSingle()
+    if (nErr) throw nErr
+    if (!notif) return res.status(404).json({ message: 'Request not found' })
+    const uid = notif.payload?.user_id
+    if (!uid) return res.status(400).json({ message: 'Invalid payload' })
+    const { error: uErr } = await supabase.from('users').update({ role: 'author' }).eq('id', uid)
+    if (uErr) throw uErr
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id)
+    try { await notify(uid, 'author_role_granted', {}) } catch {}
+    res.json({ success: true })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to approve application' })
+  }
+})
+
+router.post('/author-requests/:id/reject', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const id = req.params.id
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : ''
+    const { data: notif, error: nErr } = await supabase
+      .from('notifications')
+      .select('id, payload')
+      .eq('id', id)
+      .eq('type', 'author_role_request')
+      .maybeSingle()
+    if (nErr) throw nErr
+    if (!notif) return res.status(404).json({ message: 'Request not found' })
+    const uid = notif.payload?.user_id
+    if (!uid) return res.status(400).json({ message: 'Invalid payload' })
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id)
+    try { await notify(uid, 'author_role_rejected', { reason }) } catch {}
+    res.json({ success: true })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to reject application' })
   }
 })
 

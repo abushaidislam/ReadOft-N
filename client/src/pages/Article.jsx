@@ -125,6 +125,18 @@ export default function Article() {
 
   return (
     <div className="container page">
+      {article && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          headline: article.title,
+          datePublished: article.created_at,
+          dateModified: article.updated_at || article.created_at,
+          author: article.author?.name ? { "@type": "Person", name: article.author.name } : undefined,
+          image: article.thumbnail_url || undefined,
+          mainEntityOfPage: { "@type": "WebPage", "@id": article.slug ? `/a/${article.slug}` : `/article/${article.id}` },
+        }) }} />
+      )}
       <div className="read-progress" style={{ width: `${progress}%` }} aria-hidden="true" />
       {article.thumbnail_url && (
         <img src={article.thumbnail_url} alt="thumbnail" className="hero-thumb" loading="lazy" decoding="async" />

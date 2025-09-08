@@ -17,6 +17,9 @@ export default function Editor() {
   const [saving, setSaving] = useState(false)
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
+  const [savingNote, setSavingNote] = useState('')
+  const [articleId, setArticleId] = useState(id || '')
+  const [revisions, setRevisions] = useState([])
 
   function slugify(input) {
     return String(input || '')
@@ -44,6 +47,40 @@ export default function Editor() {
   useEffect(() => { request('/categories').then(setAllCategories).catch(() => {}) }, [])
   // auto-generate slug when title changes unless user edited slug
   useEffect(() => { if (!slugTouched) setSlug(slugify(form.title)) }, [form.title])
+
+  // load revisions when article id available
+  useEffect(() => { if (articleId) request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{}) }, [articleId])
+
+  // autosave draft every 10s when editing
+  useEffect(() => {
+    const t = setInterval(async () => {
+      try {
+        if (!form.title && !form.content) return
+        const payload = {
+          title: form.title || '(untitled)',
+          content: form.content || '',
+          tags: form.tags.split(',').map((s)=>s.trim()).filter(Boolean),
+          categories: form.categories,
+          thumbnail_url: form.thumbnail_url || '',
+          thumbnail_path: form.thumbnail_path || '',
+          status: form.status || 'draft',
+          slug,
+        }
+        if (!articleId) {
+          const created = await request('/articles', { method:'POST', body: JSON.stringify({ ...payload, status:'draft' }) })
+          setArticleId(created.id)
+          setSavingNote('Autosaved')
+          // navigate to canonical editor URL with id
+          nav(`/editor/${created.id}`, { replace: true })
+        } else {
+          await request(`/articles/${articleId}`, { method:'PUT', body: JSON.stringify({ ...payload, status: form.status }) })
+          setSavingNote('Autosaved')
+          request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{})
+        }
+      } catch {}
+    }, 10000)
+    return () => clearInterval(t)
+  }, [articleId, form.title, form.content, form.tags, form.categories, form.status, slug])
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -94,6 +131,7 @@ export default function Editor() {
   return (
     <div className="container page narrow">
       <h2>{id ? 'Edit Article' : 'New Article'}</h2>
+      {savingNote && <p className="muted" style={{marginTop:-8}}>Status: {savingNote}</p>}
       <form onSubmit={onSubmit} className="form">
         <input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         <div>
@@ -146,6 +184,23 @@ export default function Editor() {
           {saving ? 'Saving…' : (form.status === 'pending' && auth.user?.role !== 'admin' ? 'Submit for review' : 'Save')}
         </button>
       </form>
+      {articleId && (
+        <div className="section-card" style={{ marginTop: 16 }}>
+          <h3 className="card-title">Revisions</h3>
+          {revisions.length === 0 ? (
+            <p className="muted">No revisions yet.</p>
+          ) : (
+            <ul className="list-clean">
+              {revisions.map((r) => (
+                <li key={r.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <span>{new Date(r.created_at).toLocaleString()} — {r.title}</span>
+                  <button className="btn" onClick={async ()=>{ try { const a = await request(`/articles/${articleId}/revisions/${r.id}/restore`, { method:'POST' }); setForm({ ...form, title: a.title, content: a.content }); ui.notify('Revision restored', 'success'); request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{}) } catch{} }}>Restore</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="card" style={{ marginTop: 16 }}>
         <h3 className="card-title">Preview</h3>
         <div className="markdown">
@@ -157,4 +212,3 @@ export default function Editor() {
     </div>
   )
 }
-

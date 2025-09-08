@@ -18,6 +18,7 @@ import authorsRoutes from './routes/authors.js'
 import { authOptional } from './middleware/auth.js'
 import bookmarksRoutes from './routes/bookmarks.js'
 import searchRoutes from './routes/search.js'
+import seoRoutes from './routes/seo.js'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -42,6 +43,7 @@ app.use('/api', commentRoutes)
 app.use('/api', bookmarksRoutes)
 app.use('/api', notificationsRoutes)
 app.use('/api', searchRoutes)
+app.use('/', seoRoutes)
 
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err)

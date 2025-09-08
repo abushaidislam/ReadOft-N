@@ -172,6 +172,12 @@ function NotifText({ n }) {
         Review requested: <Link to="/admin">{p.title || 'Article'}</Link> by {p.author_name || 'author'}
       </span>
     )
+  if (t === 'author_role_request')
+    return (
+      <span>
+        Author application from {p.name || 'User'}
+      </span>
+    )
   return <span>Activity update</span>
 }
 
