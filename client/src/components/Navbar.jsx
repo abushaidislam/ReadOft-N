@@ -1,17 +1,16 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import { useEffect, useState } from 'react'
+import { useTheme } from '../state/ThemeContext.jsx'
 import Button from './Button.jsx'
 
 export default function Navbar() {
   const { auth, logout, ui } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const nav = useNavigate()
   const [open, setOpen] = useState(false)
   const [showNotif, setShowNotif] = useState(false)
   const [pfpOk, setPfpOk] = useState(true)
-  const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem('theme') || 'dark' } catch { return 'dark' }
-  })
 
   const onLogout = () => {
     logout()
@@ -24,12 +23,6 @@ export default function Navbar() {
     const t = setInterval(() => ui.loadNotifications().catch(() => {}), 20000)
     return () => clearInterval(t)
   }, [auth.user])
-
-  useEffect(() => {
-    try { localStorage.setItem('theme', theme) } catch {}
-    const root = document.documentElement
-    root.setAttribute('data-theme', theme)
-  }, [theme])
 
   return (
     <header className="nav">
@@ -60,7 +53,7 @@ export default function Navbar() {
         <div className={`auth ${open ? 'open' : ''}`}>
           {auth.user ? (
             <>
-              <Button className="theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
+              <Button className="theme-toggle" aria-label="Toggle theme" onClick={toggleTheme}>
                 {theme === 'dark' ? '☀️' : '🌙'}
               </Button>
               <button
@@ -117,7 +110,7 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Button className="theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
+              <Button className="theme-toggle" aria-label="Toggle theme" onClick={toggleTheme}>
                 {theme === 'dark' ? '☀️' : '🌙'}
               </Button>
               <Button as={Link} to="/login">
