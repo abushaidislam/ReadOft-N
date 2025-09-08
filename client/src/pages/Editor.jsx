@@ -15,10 +15,22 @@ export default function Editor() {
   const [thumbFile, setThumbFile] = useState(null)
   const fileRef = useRef(null)
   const [saving, setSaving] = useState(false)
+  const [slug, setSlug] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
+
+  function slugify(input) {
+    return String(input || '')
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/[\s-]+/g, '-')
+  }
 
   useEffect(() => {
     if (!id) return
-    request(`/articles/${id}`).then((a) => setForm({
+    request(`/articles/${id}`).then((a) => { setForm({
       title: a.title,
       content: a.content,
       tags: (a.tags || []).join(', '),
@@ -26,10 +38,12 @@ export default function Editor() {
       status: a.status,
       thumbnail_url: a.thumbnail_url || '',
       thumbnail_path: a.thumbnail_path || '',
-    })).catch(console.error)
+    }); setSlug(a.slug || slugify(a.title)) }).catch(console.error)
   }, [id])
 
   useEffect(() => { request('/categories').then(setAllCategories).catch(() => {}) }, [])
+  // auto-generate slug when title changes unless user edited slug
+  useEffect(() => { if (!slugTouched) setSlug(slugify(form.title)) }, [form.title])
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -63,6 +77,7 @@ export default function Editor() {
         thumbnail_url,
         thumbnail_path,
         status: form.status,
+        slug: slug,
       }
       if (id) await request(`/articles/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
       else await request('/articles', { method: 'POST', body: JSON.stringify(payload) })
@@ -114,6 +129,11 @@ export default function Editor() {
             <option value="pending">Pending</option>
             <option value="published">Published</option>
           </select>
+        </label>
+        <label>
+          Slug:
+          <input placeholder="post-slug" value={slug} onChange={(e)=>{ setSlug(e.target.value); setSlugTouched(true) }} />
+          <div className="muted" style={{fontSize:'.85rem'}}>URL preview: {slug ? `${location.origin}/a/${slug}` : 'Will be generated from title'}</div>
         </label>
         {error && <p className="error">{error}</p>}
         <button className={`btn btn-primary ${saving ? 'loading' : ''}`} type="submit" disabled={saving}>

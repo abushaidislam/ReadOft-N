@@ -55,6 +55,12 @@ export default function Article() {
       }
     } catch {}
   }
+  const copyLink = async () => {
+    try {
+      const link = article.slug ? `${location.origin}/a/${article.slug}` : `${location.origin}/article/${article.id}`
+      await navigator.clipboard.writeText(link)
+    } catch {}
+  }
 
   return (
     <div className="container page">
@@ -72,6 +78,7 @@ export default function Article() {
         <button className="btn btn-primary" onClick={like} disabled={liked}>{liked ? 'Liked' : 'Like'}</button>
         <button className="btn" onClick={follow}>Follow Author</button>
         <button className="btn" onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</button>
+        <button className="btn" onClick={copyLink}>Copy Link</button>
       </div>
       <div className="markdown">
         <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>

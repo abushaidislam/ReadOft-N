@@ -35,6 +35,18 @@ export default function Home() {
   return (
     <div className="container page">
       <section className="hero">
+        {/* Background video */}
+        <video
+          className="hero-video-bg"
+          src="/Hero (1).mp4"
+          muted
+          autoPlay
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+        />
+        <div className="hero-overlay" aria-hidden="true" />
         <div className="hero-inner">
           <h1 className="hero-title">Read. Write. Discover.</h1>
           <p className="hero-sub">Fresh articles from authors you follow and love.</p>
