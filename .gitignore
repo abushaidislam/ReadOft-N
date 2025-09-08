@@ -4,15 +4,13 @@ client/node_modules/
 server/node_modules/
 
 # Builds
-client/dist/
+
 
 # Env and secrets
-server/.env
+
 
 # Logs
-*.log
-server/out.log
-server/err.log
+
 
 # Editor
 .vscode/
