@@ -120,6 +120,16 @@ export default function Home() {
       <section className="hero">
         {/* Background video */}
         <video
+          className="hero-video-blur"
+          src="/Hero (1).mp4"
+          muted
+          autoPlay
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+        />
+        <video
           ref={heroVideoRef}
           className="hero-video-bg"
           src="/Hero (1).mp4"
