@@ -13,6 +13,7 @@ export default function Home() {
   const [page, setPage] = useState(1)
   const [pageInfo, setPageInfo] = useState(null)
   const [sort, setSort] = useState('-created_at') // '-created_at' | '-like_count'
+  const [period, setPeriod] = useState('') // '', 'week', 'month'
   const [muted, setMuted] = useState(() => {
     try { return localStorage.getItem('heroMuted') !== 'false' } catch { return true }
   })
@@ -35,6 +36,7 @@ export default function Home() {
     params.set('page', String(page))
     params.set('limit', '12')
     params.set('sort', String(sort))
+    if (period) params.set('period', period)
     const endpoint = q ? '/search' : '/articles'
     const data = await request(`${endpoint}?${params.toString()}`, { noGlobalLoading: true })
     setItems(data.items)
@@ -99,8 +101,9 @@ export default function Home() {
       </section>
       <div className="container page">
       <div className="tabs" style={{ marginTop: 12 }}>
-        <button className={`tab ${sort === '-created_at' ? 'active' : ''}`} onClick={() => { setSort('-created_at'); setPage(1) }}>Latest</button>
-        <button className={`tab ${sort === '-like_count' ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPage(1) }}>Trending</button>
+        <button className={`tab ${sort === '-created_at' && !period ? 'active' : ''}`} onClick={() => { setSort('-created_at'); setPeriod(''); setPage(1) }}>Latest</button>
+        <button className={`tab ${sort === '-like_count' && !period ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPeriod(''); setPage(1) }}>Trending</button>
+        <button className={`tab ${period === 'week' ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPeriod('week'); setPage(1) }}>This Week</button>
       </div>
       <div className="filters">
         <input placeholder="Search title..." value={q} onChange={(e) => setQ(e.target.value)} />

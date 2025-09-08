@@ -25,6 +25,23 @@ router.get('/', authOptional, async (req, res) => {
     const allowedSort = ['created_at', 'like_count', 'title']
     const orderKey = allowedSort.includes(sortKey) ? sortKey : 'created_at'
 
+    // optional period filter: today|week|month
+    const period = String(req.query.period || '').toLowerCase()
+    let fromDate = null
+    if (period === 'today') {
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      fromDate = d
+    } else if (period === 'week') {
+      const d = new Date()
+      d.setDate(d.getDate() - 7)
+      fromDate = d
+    } else if (period === 'month') {
+      const d = new Date()
+      d.setDate(d.getDate() - 30)
+      fromDate = d
+    }
+
     // base query with author join (minimal fields)
     const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
     let query = supabase
@@ -41,6 +58,7 @@ router.get('/', authOptional, async (req, res) => {
     if (category) query = query.contains('categories', [category])
     if (author_id) query = query.eq('author_id', author_id)
     if (q) query = query.ilike('title', `%${q}%`)
+    if (fromDate) query = query.gte('created_at', fromDate.toISOString())
     const { data, error, count } = await query
     if (error) throw error
     const total = count ?? 0
