@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import Button from '../components/Button.jsx'
 
 export default function Register() {
   const { register } = useAuth()
@@ -32,7 +33,7 @@ export default function Register() {
             <input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             {error && <p className="error">{error}</p>}
-            <button className="btn btn-primary" type="submit">Create account</button>
+            <Button type="submit" variant="primary">Create account</Button>
           </form>
           <p className="muted">Have an account? <Link to="/login">Log in</Link></p>
         </div>

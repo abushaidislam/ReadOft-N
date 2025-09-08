@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import { useEffect, useState } from 'react'
+import Button from './Button.jsx'
 
 export default function Navbar() {
   const { auth, logout, ui } = useAuth()
@@ -59,9 +60,9 @@ export default function Navbar() {
         <div className={`auth ${open ? 'open' : ''}`}>
           {auth.user ? (
             <>
-              <button className="btn theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
+              <Button className="theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
                 {theme === 'dark' ? '☀️' : '🌙'}
-              </button>
+              </Button>
               <button
                 className="bell"
                 aria-label="Notifications"
@@ -78,9 +79,9 @@ export default function Navbar() {
                   <div className="notif-head">
                     <strong>Notifications</strong>
                     {ui.unread > 0 && (
-                      <button className="btn" onClick={() => ui.markAllRead()}>
+                      <Button onClick={() => ui.markAllRead()}>
                         Mark all read
-                      </button>
+                      </Button>
                     )}
                   </div>
                   <div className="notif-list">
@@ -110,21 +111,21 @@ export default function Navbar() {
                   <span className="nav-avatar nav-fallback">{(auth.user.name || 'U').slice(0, 1).toUpperCase()}</span>
                 )}
               </Link>
-              <button className="btn" onClick={onLogout}>
+              <Button onClick={onLogout}>
                 Logout
-              </button>
+              </Button>
             </>
           ) : (
             <>
-              <button className="btn theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
+              <Button className="theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
                 {theme === 'dark' ? '☀️' : '🌙'}
-              </button>
-              <Link className="btn" to="/login">
+              </Button>
+              <Button as={Link} to="/login">
                 Login
-              </Link>
-              <Link className="btn btn-primary" to="/register">
+              </Button>
+              <Button as={Link} variant="primary" to="/register">
                 Sign Up
-              </Link>
+              </Button>
             </>
           )}
         </div>

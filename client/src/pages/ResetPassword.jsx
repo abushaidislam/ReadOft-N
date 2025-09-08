@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import Button from '../components/Button.jsx'
 
 export default function ResetPassword() {
   const { request, ui } = useAuth()
@@ -42,7 +43,7 @@ export default function ResetPassword() {
             <input type="password" placeholder="New password (min 8)" value={password} onChange={(e)=>setPassword(e.target.value)} required />
             <input type="password" placeholder="Confirm password" value={confirm} onChange={(e)=>setConfirm(e.target.value)} required />
             {error && <p className="error">{error}</p>}
-            <button className="btn btn-primary" type="submit" disabled={done}>Reset Password</button>
+            <Button type="submit" variant="primary" disabled={done}>Reset Password</Button>
           </form>
         </div>
       </div>

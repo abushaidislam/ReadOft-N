@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
+import Button from '../components/Button.jsx'
 
 export default function Feed() {
   const { request } = useAuth()
@@ -37,9 +38,9 @@ export default function Feed() {
             {items.map((a) => <ArticleCard article={a} key={a.id} />)}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
-            <button className="btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
+            <Button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
             <span className="muted">Page {pageInfo?.page || page} / {pageInfo?.totalPages || '?'}</span>
-            <button className="btn" disabled={pageInfo && page >= pageInfo.totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
+            <Button disabled={pageInfo && page >= pageInfo.totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
           </div>
         </>
       )}

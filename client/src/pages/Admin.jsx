@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import Button from '../components/Button.jsx'
 
 export default function Admin() {
   const { request, ui } = useAuth()
@@ -124,8 +125,8 @@ export default function Admin() {
                       <option value="author">author</option>
                       <option value="admin">admin</option>
                     </select>
-                    <button className="btn" onClick={async()=>{ await request(`/admin/users/${u.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: !u.is_banned }) }); load() }}>{u.is_banned?'Unban':'Ban'}</button>
-                    <button className="btn" onClick={async()=>{ if (confirm('Delete user account? This cannot be undone.')) { await request(`/admin/users/${u.id}`, { method:'DELETE' }); load() } }}>Delete</button>
+                    <Button onClick={async()=>{ await request(`/admin/users/${u.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: !u.is_banned }) }); load() }}>{u.is_banned?'Unban':'Ban'}</Button>
+                    <Button onClick={async()=>{ if (confirm('Delete user account? This cannot be undone.')) { await request(`/admin/users/${u.id}`, { method:'DELETE' }); load() } }}>Delete</Button>
                   </td>
                 </tr>
               ))}
@@ -154,9 +155,9 @@ export default function Admin() {
                     </Link>
                   </td>
                   <td style={{display:'flex', gap:8}}>
-                    <button className="btn btn-primary" onClick={() => approve(a.id)}>Approve</button>
-                    <button className="btn" onClick={() => reject(a.id)}>Reject</button>
-                    <button className="btn" onClick={() => deleteArticle(a.id)}>Delete</button>
+                    <Button variant="primary" onClick={() => approve(a.id)}>Approve</Button>
+                    <Button onClick={() => reject(a.id)}>Reject</Button>
+                    <Button onClick={() => deleteArticle(a.id)}>Delete</Button>
                   </td>
                 </tr>
               ))}
@@ -169,12 +170,12 @@ export default function Admin() {
       <section className="section-card">
         <h3>Categories</h3>
         <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
-          <Link className="btn" to="/admin/categories">Open full page</Link>
+          <Button as={Link} to="/admin/categories">Open full page</Button>
         </div>
         <div className="form" style={{marginBottom:12}}>
           <input placeholder="Name" value={catName} onChange={(e) => setCatName(e.target.value)} />
           <input placeholder="Slug (optional)" value={catSlug} onChange={(e) => setCatSlug(e.target.value)} />
-          <button className="btn btn-primary" onClick={addCategory}>Add</button>
+          <Button variant="primary" onClick={addCategory}>Add</Button>
         </div>
         <table className="table">
           <thead><tr><th>Name</th><th>Slug</th><th>Actions</th></tr></thead>
@@ -184,15 +185,15 @@ export default function Admin() {
                 <td>{c.name}</td>
                 <td>{c.slug}</td>
                 <td>
-                  <button className="btn" onClick={() => {
+                  <Button onClick={() => {
                     const name = prompt('Rename category', c.name)
                     if (name && name !== c.name) updateCategory(c.id, { name })
-                  }}>Rename</button>
-                  <button className="btn" onClick={() => {
+                  }}>Rename</Button>
+                  <Button onClick={() => {
                     const slug = prompt('Update slug', c.slug)
                     if (slug && slug !== c.slug) updateCategory(c.id, { slug })
-                  }}>Slug</button>
-                  <button className="btn" onClick={() => { if (confirm('Delete category?')) deleteCategory(c.id) }}>Delete</button>
+                  }}>Slug</Button>
+                  <Button onClick={() => { if (confirm('Delete category?')) deleteCategory(c.id) }}>Delete</Button>
                 </td>
               </tr>
             ))}
@@ -213,8 +214,8 @@ export default function Admin() {
               <td>{r.payload?.email || '-'}</td>
               <td>{new Date(r.created_at).toLocaleString()}</td>
               <td style={{display:'flex', gap:8}}>
-                <button className="btn btn-primary" onClick={async()=>{ await request(`/admin/author-requests/${r.id}/approve`, { method:'POST' }); load() }}>Approve</button>
-                <button className="btn" onClick={async()=>{ const reason = prompt('Reason? (optional)')||''; await request(`/admin/author-requests/${r.id}/reject`, { method:'POST', body: JSON.stringify({ reason }) }); load() }}>Reject</button>
+                <Button variant="primary" onClick={async()=>{ await request(`/admin/author-requests/${r.id}/approve`, { method:'POST' }); load() }}>Approve</Button>
+                <Button onClick={async()=>{ const reason = prompt('Reason? (optional)')||''; await request(`/admin/author-requests/${r.id}/reject`, { method:'POST', body: JSON.stringify({ reason }) }); load() }}>Reject</Button>
               </td>
             </tr>
           ))}
@@ -237,15 +238,15 @@ export default function Admin() {
               <td>{new Date(r.created_at).toLocaleString()}</td>
               <td>
                 <span className="chip">{r.target_type}</span>
-                {r.target_type==='post' && <a className="btn btn-link" href={`/article/${r.target_id}`} target="_blank" rel="noreferrer">Open</a>}
+                {r.target_type==='post' && <Button as="a" className="btn-link" href={`/article/${r.target_id}`} target="_blank" rel="noreferrer">Open</Button>}
               </td>
               <td>{r.reporter?.name || r.reporter_id}</td>
               <td style={{maxWidth:420, whiteSpace:'pre-wrap'}}>{r.reason}</td>
               <td>{r.status}</td>
               <td style={{display:'flex', gap:8}}>
-                <button className="btn" onClick={()=>updateReport(r.id, { status: 'reviewed' })}>Review</button>
-                <button className="btn" onClick={()=>updateReport(r.id, { status: 'dismissed' })}>Dismiss</button>
-                <button className="btn" onClick={()=>updateReport(r.id, { status: 'actioned' })}>Actioned</button>
+                <Button onClick={()=>updateReport(r.id, { status: 'reviewed' })}>Review</Button>
+                <Button onClick={()=>updateReport(r.id, { status: 'dismissed' })}>Dismiss</Button>
+                <Button onClick={()=>updateReport(r.id, { status: 'actioned' })}>Actioned</Button>
               </td>
             </tr>
           ))}

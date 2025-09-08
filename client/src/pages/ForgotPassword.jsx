@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
+import Button from '../components/Button.jsx'
 
 export default function ForgotPassword() {
   const { request, ui } = useAuth()
@@ -28,7 +29,7 @@ export default function ForgotPassword() {
           <form className="form" onSubmit={submit}>
             <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
             {error && <p className="error">{error}</p>}
-            <button className="btn btn-primary" type="submit" disabled={sent}>{sent ? 'Sent' : 'Send reset link'}</button>
+            <Button type="submit" variant="primary" disabled={sent}>{sent ? 'Sent' : 'Send reset link'}</Button>
           </form>
         </div>
       </div>

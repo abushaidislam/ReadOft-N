@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import Button from '../components/Button.jsx'
 
 export default function Profile() {
   const { request, auth, setAuth } = useAuth()
@@ -63,7 +64,7 @@ export default function Profile() {
                   const updated = await request('/me', { method:'PUT', body: JSON.stringify({ avatar_url: data.url, avatar_path: data.path }) })
                   setMe(updated); setAuth({ ...auth, user: { ...auth.user, name: updated.name, avatar_url: updated.avatar_url } }); setSuccess('Avatar updated')
                 }}/>
-                <button className="btn" onClick={()=>fileRef.current?.click()}>Change Avatar</button>
+                <Button onClick={()=>fileRef.current?.click()}>Change Avatar</Button>
               </div>
             </div>
           </div>
@@ -83,9 +84,9 @@ export default function Profile() {
             <h3 style={{marginTop:0}}>Become an Author</h3>
             <p className="muted">Submit an application to publish posts. An admin will review your request.</p>
             <div style={{display:'flex', gap:8}}>
-              <button className="btn btn-primary" onClick={async()=>{
+              <Button variant="primary" onClick={async()=>{
                 try { await request('/me/apply-author', { method: 'POST' }); alert('Application submitted. You will be notified.'); setApplyStatus({ requestedAt: new Date().toISOString() }) } catch{}
-              }}>Apply for author</button>
+              }}>Apply for author</Button>
               {applyStatus?.requestedAt && <span className="muted">Requested: {new Date(applyStatus.requestedAt).toLocaleString()}</span>}
             </div>
           </section>
@@ -217,10 +218,10 @@ export default function Profile() {
             <input placeholder="Name" value={name} onChange={(e)=>setName(e.target.value)} />
             <textarea placeholder="Bio" rows={3} value={bio} onChange={(e)=>setBio(e.target.value)} />
             <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
-              <button className="btn btn-primary" onClick={async ()=>{
+              <Button variant="primary" onClick={async ()=>{
                 setError(''); setSuccess('')
                 try { const updated = await request('/me', { method:'PUT', body: JSON.stringify({ name, bio }) }); setMe(updated); setAuth({ ...auth, user: { ...auth.user, name: updated.name } }); setSuccess('Profile saved') } catch(e){ setError(e.message) }
-              }}>Save Changes</button>
+              }}>Save Changes</Button>
             </div>
             {(error || success) && (
               <div style={{display:'flex', gap:8}}>
@@ -237,10 +238,10 @@ export default function Profile() {
             <input placeholder="Current password" type="password" value={pwd.current} onChange={(e)=>setPwd({...pwd, current:e.target.value})} />
             <input placeholder="New password" type="password" value={pwd.next} onChange={(e)=>setPwd({...pwd, next:e.target.value})} />
             <div style={{display:'flex', justifyContent:'flex-end'}}>
-              <button className="btn" onClick={async ()=>{
+              <Button onClick={async ()=>{
                 setError(''); setSuccess('')
                 try { const r = await request('/me/password', { method:'PUT', body: JSON.stringify({ current_password: pwd.current, new_password: pwd.next }) }); if (r?.token) setAuth({ token: r.token, user: auth.user }); setSuccess('Password changed') } catch(e){ setError(e.message) }
-              }}>Update Password</button>
+              }}>Update Password</Button>
             </div>
           </div>
         </section>

@@ -9,6 +9,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import rehypeHighlight from 'rehype-highlight'
 import Comments from '../components/Comments.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
+import Button from '../components/Button.jsx'
 
 export default function Article() {
   const { id, slug } = useParams()
@@ -193,22 +194,22 @@ export default function Article() {
           <div className="muted">{readingMinutes} min read</div>
           <p className="muted">{new Date(article.created_at).toLocaleString()} • {article.like_count} likes</p>
         </div>
-        <a className="btn" href={`/author/${article.author_id}`}>View Author</a>
+        <Button as="a" href={`/author/${article.author_id}`}>View Author</Button>
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button className="btn btn-primary" onClick={like} disabled={liked}>{liked ? 'Liked' : 'Like'}</button>
-        <button className="btn" onClick={follow}>Follow Author</button>
-        <button className="btn" onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</button>
-        <button className="btn" onClick={share}>Share</button>
-        <button className="btn" onClick={copyLink}>Copy Link</button>
-        <button className="btn" onClick={async()=>{
+        <Button variant="primary" onClick={like} disabled={liked}>{liked ? 'Liked' : 'Like'}</Button>
+        <Button onClick={follow}>Follow Author</Button>
+        <Button onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</Button>
+        <Button onClick={share}>Share</Button>
+        <Button onClick={copyLink}>Copy Link</Button>
+        <Button onClick={async()=>{
           try {
             const reason = prompt('Why are you reporting this article?') || ''
             if (!reason.trim()) return
             await request('/reports', { method:'POST', body: JSON.stringify({ target_type:'post', target_id: article.id, reason }) })
             ui.notify('Report submitted. Thank you.', 'info')
           } catch {}
-        }}>Report</button>
+        }}>Report</Button>
       </div>
       <div className="markdown-layout" style={{ display: 'grid', gridTemplateColumns: toc.length ? 'minmax(0,1fr) 280px' : '1fr', gap: 'var(--space-lg)' }}>
         <div className="markdown">

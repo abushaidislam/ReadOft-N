@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import Button from '../components/Button.jsx'
 
 export default function Dashboard() {
   const { request, auth } = useAuth()
@@ -21,7 +22,7 @@ export default function Dashboard() {
     <div className="container page">
       <div className="page-head">
         <h2>Your Articles</h2>
-        <Link className="btn btn-primary" to="/editor">New Article</Link>
+        <Button as={Link} variant="primary" to="/editor">New Article</Button>
       </div>
       <div className="tabs" role="tablist" aria-label="Article status tabs" style={{ marginTop: 8 }}>
         {['all','draft','pending','published'].map((s) => (
@@ -42,18 +43,18 @@ export default function Dashboard() {
                 <td><span className={`badge ${a.status}`}>{a.status==='pending'?'in review':a.status}</span></td>
                 <td>{a.like_count}</td>
                 <td>
-                  <Link className="btn" to={`/editor/${a.id}`}>Edit</Link>
+                  <Button as={Link} to={`/editor/${a.id}`}>Edit</Button>
                   {a.status==='draft' && (
-                    <button className="btn btn-primary" style={{marginLeft:8}} onClick={async () => {
+                    <Button variant="primary" style={{marginLeft:8}} onClick={async () => {
                       await request(`/articles/${a.id}`, { method: 'PUT', body: JSON.stringify({ status: 'pending' }) })
                       await load()
-                    }}>Submit for review</button>
+                    }}>Submit for review</Button>
                   )}
-                  <button className="btn" style={{marginLeft:8}} onClick={async () => {
+                  <Button style={{marginLeft:8}} onClick={async () => {
                     if (!confirm('Delete this article? This cannot be undone.')) return
                     await request(`/articles/${a.id}`, { method: 'DELETE' })
                     load()
-                  }}>Delete</button>
+                  }}>Delete</Button>
                 </td>
               </tr>
             ))}

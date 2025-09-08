@@ -37,11 +37,6 @@ a { color: var(--text); text-decoration: none }
 .notif-content { display:flex; flex-direction:column; gap:var(--space-xxs); flex:1 }
 .notif-thumb { width:var(--space-3xl); height:var(--space-36); border-radius:var(--space-6); border:var(--space-1) solid var(--border); object-fit:cover }
 
-.btn { background: #1b1f2a; border: var(--space-1) solid var(--border); color: var(--text); padding: var(--space-10) var(--space-md); border-radius: var(--space-12); transition: filter .2s }
-.btn-primary { background: var(--primary); border-color: var(--primary); color:#fff }
-.btn:focus { outline: none }
-.btn:hover { filter: brightness(1.1) }
-.btn.loading, .btn:disabled { opacity:.7; cursor:not-allowed }
 
 .page { padding: var(--space-lg) 0 }
 .page-head { display: flex; align-items: center; justify-content: space-between }
