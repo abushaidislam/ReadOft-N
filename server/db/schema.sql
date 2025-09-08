@@ -41,8 +41,16 @@ alter table articles add column if not exists slug text unique;
 alter table articles add column if not exists search tsvector generated always as (
   to_tsvector('english', coalesce(title,'') || ' ' || coalesce(content,''))
 ) stored;
+-- Scheduling: when to make it visible
+alter table articles add column if not exists publish_at timestamptz null;
+-- When it actually went live (used for notifications idempotency)
+alter table articles add column if not exists published_at timestamptz null;
+-- Draft preview token (optional expiry)
+alter table articles add column if not exists preview_token text unique;
+alter table articles add column if not exists preview_token_expires_at timestamptz null;
 create index if not exists idx_articles_slug on articles(slug);
 create index if not exists idx_articles_search on articles using gin(search);
+create index if not exists idx_articles_publish_at on articles(publish_at);
 
 -- Likes (unique by user/article)
 create table if not exists article_likes (

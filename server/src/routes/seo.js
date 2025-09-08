@@ -25,8 +25,9 @@ router.get(['/sitemap.xml','/api/sitemap.xml'], async (req, res) => {
     // articles (latest 2000)
     const { data: arts } = await supabase
       .from('articles')
-      .select('id, slug, updated_at, created_at, status')
+      .select('id, slug, updated_at, created_at, status, publish_at')
       .eq('status','published')
+      .or(`publish_at.is.null,publish_at.lte.${new Date().toISOString()}`)
       .order('updated_at', { ascending: false })
       .limit(2000)
     const xmlItems = urls.map(u => `<url><loc>${u}</loc></url>`)
@@ -49,8 +50,9 @@ router.get(['/rss.xml','/api/rss.xml'], async (req, res) => {
     const siteTitle = process.env.APP_NAME || 'Readoft'
     const { data: items } = await supabase
       .from('articles')
-      .select('id, slug, title, content, created_at, updated_at, status, author:users!articles_author_id_fkey(name)')
+      .select('id, slug, title, content, created_at, updated_at, publish_at, status, author:users!articles_author_id_fkey(name)')
       .eq('status','published')
+      .or(`publish_at.is.null,publish_at.lte.${new Date().toISOString()}`)
       .order('created_at', { ascending: false })
       .limit(50)
     const now = new Date().toUTCString()
@@ -69,4 +71,3 @@ router.get(['/rss.xml','/api/rss.xml'], async (req, res) => {
 })
 
 export default router
-

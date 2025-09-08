@@ -359,6 +359,21 @@ export default function Editor() {
           <div className="muted" style={{fontSize:'.85rem'}}>URL preview: {slug ? `${location.origin}/a/${slug}` : 'Will be generated from title'}</div>
         </label>
         {error && <p className="error">{error}</p>}
+        {articleId && (
+          <div style={{ display:'flex', gap:8, alignItems:'center', margin:'8px 0' }}>
+            <button className="btn" type="button" onClick={async()=>{
+              try {
+                const r = await request(`/articles/${articleId}/preview`, { method:'POST' })
+                const url = r?.url || (r?.token ? `/p/${r.token}` : '')
+                if (url) {
+                  try { await navigator.clipboard.writeText(url.startsWith('http') ? url : (location.origin + url)) } catch {}
+                  ui.notify('Preview link copied to clipboard', 'success')
+                }
+              } catch {}
+            }}>Get Preview Link</button>
+            <span className="muted" style={{ fontSize: '.85rem' }}>Share this link to preview your draft without login.</span>
+          </div>
+        )}
         <button className={`btn btn-primary ${saving ? 'loading' : ''}`} type="submit" disabled={saving}>
           {saving ? 'Saving…' : (form.status === 'pending' && auth.user?.role !== 'admin' ? 'Submit for review' : 'Save')}
         </button>

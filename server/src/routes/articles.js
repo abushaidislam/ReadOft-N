@@ -43,7 +43,7 @@ router.get('/', authOptional, async (req, res) => {
     }
 
     // base query with author join (minimal fields)
-    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
+    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,publish_at,published_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
     let query = supabase
       .from('articles')
       .select(select, { count: 'exact' })
@@ -53,6 +53,8 @@ router.get('/', authOptional, async (req, res) => {
     const isOwnerView = author_id && (u?.id === author_id || u?.role === ROLES.ADMIN)
     if (!isOwnerView) {
       query = query.eq('status', 'published')
+      const nowIso = new Date().toISOString()
+      query = query.or(`publish_at.is.null,publish_at.lte.${nowIso}`)
     }
     if (tag) query = query.contains('tags', [tag])
     if (category) query = query.contains('categories', [category])
@@ -73,17 +75,74 @@ router.get('/', authOptional, async (req, res) => {
   }
 })
 
+// Public Preview by token
+router.get('/preview/:token', async (req, res) => {
+  try {
+    const token = req.params.token
+    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,publish_at,published_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
+    const { data: article, error } = await supabase
+      .from('articles')
+      .select(select)
+      .eq('preview_token', token)
+      .maybeSingle()
+    if (error) throw error
+    if (!article) return res.status(404).json({ message: 'Preview not found' })
+    // optionally enforce expiry
+    // if (article.preview_token_expires_at && new Date(article.preview_token_expires_at) < new Date())
+    //   return res.status(410).json({ message: 'Preview expired' })
+    res.json(article)
+  } catch (e) {
+    console.error('preview fetch error', e)
+    res.status(500).json({ message: 'Failed to load preview' })
+  }
+})
+
+// Generate or refresh a draft preview link
+router.post('/:id/preview', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (req, res) => {
+  try {
+    const id = req.params.id
+    const { data: article, error: aErr } = await supabase.from('articles').select('id, author_id').eq('id', id).maybeSingle()
+    if (aErr) throw aErr
+    if (!article) return res.status(404).json({ message: 'Not found' })
+    if (req.user.role !== ROLES.ADMIN && article.author_id !== req.user.id) return res.status(403).json({ message: 'Forbidden' })
+    const token = randomUUID().replace(/-/g,'')
+    const expiresAt = (() => {
+      const d = new Date(); d.setDate(d.getDate() + 7); return d
+    })()
+    const { data, error } = await supabase
+      .from('articles')
+      .update({ preview_token: token, preview_token_expires_at: expiresAt, updated_at: new Date() })
+      .eq('id', id)
+      .select('id, slug, preview_token, preview_token_expires_at')
+      .single()
+    if (error) throw error
+    const base = (process.env.PUBLIC_BASE_URL || process.env.APP_BASE_URL || '').replace(/\/$/, '')
+    const origin = base || ''
+    const path = `/p/${data.preview_token}`
+    res.json({ token: data.preview_token, expires_at: data.preview_token_expires_at, url: origin ? origin + path : path })
+  } catch (e) {
+    console.error('preview gen error', e)
+    res.status(500).json({ message: 'Failed to create preview link' })
+  }
+})
+
 // Get single article by id (published or owned by author/admin)
 router.get('/:id', authOptional, async (req, res) => {
   try {
     const id = req.params.id
-    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
+    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,publish_at,published_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
     const { data: article, error } = await supabase.from('articles').select(select).eq('id', id).maybeSingle()
     if (error) throw error
     if (!article) return res.status(404).json({ message: 'Not found' })
     if (article.status !== 'published') {
       const u = req.user
       if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
+    } else {
+      const now = new Date()
+      if (article.publish_at && new Date(article.publish_at) > now) {
+        const u = req.user
+        if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
+      }
     }
     res.json(article)
   } catch (e) {
@@ -116,12 +175,23 @@ router.post('/', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (re
       created_at: new Date(),
       updated_at: new Date(),
     }
+    // publish_at allowed for admins only
+    if (req.user.role === ROLES.ADMIN && req.body.publish_at) {
+      const p = new Date(req.body.publish_at)
+      if (!isNaN(p.getTime())) payload.publish_at = p
+    }
     // generate slug
     const requestedSlug = typeof req.body.slug === 'string' && req.body.slug.trim()
       ? slugify(req.body.slug)
       : slugify(payload.title)
     payload.slug = await ensureUniqueSlug(supabase, requestedSlug)
     validateArticle(payload)
+    // if admin created published and not scheduled in future, mark published_at
+    const now = new Date()
+    if (payload.status === 'published') {
+      const pAt = payload.publish_at ? new Date(payload.publish_at) : null
+      if (!pAt || pAt <= now) payload.published_at = now
+    }
     const { data, error } = await supabase.from('articles').insert(payload).select('*').single()
     if (error) throw error
     // create initial revision
@@ -130,8 +200,12 @@ router.post('/', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (re
     } catch (e) { console.error('rev create error', e) }
     // If pending, notify admins of submission
     try { if (data?.status === 'pending') await notifyAdminsOfPendingArticle(data.id) } catch (e) { console.error('notify admins create pending', e) }
-    // If published immediately, notify followers
-    try { if (data?.status === 'published') await notifyFollowersOfArticle(author_id, data.id, data.title) } catch (e) { console.error('notify followers create', e) }
+    // If went live now, notify followers
+    try {
+      if (data?.status === 'published' && data?.published_at && (!data.publish_at || new Date(data.publish_at) <= now)) {
+        await notifyFollowersOfArticle(author_id, data.id, data.title)
+      }
+    } catch (e) { console.error('notify followers create', e) }
     res.status(201).json(data)
   } catch (e) {
     console.error(e)
@@ -158,6 +232,13 @@ router.put('/:id', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (
       thumbnail_path: typeof req.body.thumbnail_path === 'string' ? req.body.thumbnail_path : existing.thumbnail_path,
       updated_at: new Date(),
     }
+    if (req.user.role === ROLES.ADMIN && typeof req.body.publish_at !== 'undefined') {
+      if (req.body.publish_at === null || req.body.publish_at === '') patch.publish_at = null
+      else {
+        const p = new Date(req.body.publish_at)
+        if (!isNaN(p.getTime())) patch.publish_at = p
+      }
+    }
     // Validate/adjust status transitions
     if (typeof req.body.status === 'string') {
       const allowed = ['draft', 'pending', 'published']
@@ -180,6 +261,12 @@ router.put('/:id', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (
       } catch {}
     }
 
+    // set published_at when becoming public now
+    const now2 = new Date()
+    if (patch.status === 'published' && req.user.role === ROLES.ADMIN) {
+      const pAt = (typeof patch.publish_at !== 'undefined' ? patch.publish_at : existing.publish_at) || null
+      if (!pAt || new Date(pAt) <= now2) patch.published_at = now2
+    }
     const { data, error } = await supabase.from('articles').update(patch).eq('id', id).select('*').single()
     if (error) throw error
     // add revision on update
@@ -191,7 +278,12 @@ router.put('/:id', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (
       if (toDelete.length) await supabase.from('article_revisions').delete().in('id', toDelete)
     } catch (e) { console.error('rev update error', e) }
     // If transitioning to published, notify followers
-    try { if (existing.status !== 'published' && data?.status === 'published') await notifyFollowersOfArticle(existing.author_id, id, data.title) } catch (e) { console.error('notify followers update', e) }
+    try {
+      if (existing.status !== 'published' && data?.status === 'published') {
+        const pAt = data.publish_at ? new Date(data.publish_at) : null
+        if (!pAt || pAt <= now2) await notifyFollowersOfArticle(existing.author_id, id, data.title)
+      }
+    } catch (e) { console.error('notify followers update', e) }
     // If transitioning into pending, notify admins
     try { if (existing.status !== 'pending' && data?.status === 'pending') await notifyAdminsOfPendingArticle(id) } catch (e) { console.error('notify admins pending update', e) }
     res.json(data)
@@ -224,16 +316,31 @@ router.delete('/:id', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), asyn
   }
 })
 
-// Admin: approve article
+// Admin: approve article (optional schedule via publish_at)
 router.post('/:id/approve', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
   try {
     const id = req.params.id
-    const { data, error } = await supabase.from('articles').update({ status: 'published', updated_at: new Date() }).eq('id', id).select('*').single()
+    const patch = { status: 'published', updated_at: new Date() }
+    if (typeof req.body?.publish_at !== 'undefined') {
+      if (req.body.publish_at === null || req.body.publish_at === '') patch.publish_at = null
+      else {
+        const p = new Date(req.body.publish_at)
+        if (!isNaN(p.getTime())) patch.publish_at = p
+      }
+    }
+    const now = new Date()
+    const pAt = patch.publish_at || null
+    if (!pAt || new Date(pAt) <= now) patch.published_at = now
+    const { data, error } = await supabase.from('articles').update(patch).eq('id', id).select('*').single()
     if (error) throw error
     // notify author on approval
     try { if (data?.author_id) await notify(data.author_id, 'article_approved', { article_id: id, title: data.title }) } catch (e) { console.error('approve notify error', e) }
     // notify followers of new post
-    try { if (data?.author_id) await notifyFollowersOfArticle(data.author_id, id, data.title) } catch (e) { console.error('approve notify followers error', e) }
+    try {
+      if (data?.author_id && (!data.publish_at || new Date(data.publish_at) <= new Date())) {
+        await notifyFollowersOfArticle(data.author_id, id, data.title)
+      }
+    } catch (e) { console.error('approve notify followers error', e) }
     res.json(data)
   } catch (e) {
     console.error(e)
@@ -273,13 +380,19 @@ export default router
 router.get('/slug/:slug', authOptional, async (req, res) => {
   try {
     const slug = req.params.slug
-    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
+    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,publish_at,published_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
     const { data: article, error } = await supabase.from('articles').select(select).eq('slug', slug).maybeSingle()
     if (error) throw error
     if (!article) return res.status(404).json({ message: 'Not found' })
     if (article.status !== 'published') {
       const u = req.user
       if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
+    } else {
+      const now = new Date()
+      if (article.publish_at && new Date(article.publish_at) > now) {
+        const u = req.user
+        if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
+      }
     }
     res.json(article)
   } catch (e) {
@@ -337,7 +450,7 @@ router.get('/:id/related', authOptional, async (req, res) => {
       .maybeSingle()
     if (bErr) throw bErr
     if (!base) return res.status(404).json({ message: 'Not found' })
-    const select = 'id,slug,title,thumbnail_url,like_count,created_at,categories,tags,author:users!articles_author_id_fkey(id,name,avatar_url)'
+    const select = 'id,slug,title,thumbnail_url,like_count,created_at,categories,tags,publish_at,published_at,author:users!articles_author_id_fkey(id,name,avatar_url)'
     const related = new Map()
     // by categories
     const cats = Array.isArray(base.categories) ? base.categories : []
@@ -346,6 +459,7 @@ router.get('/:id/related', authOptional, async (req, res) => {
         .from('articles')
         .select(select)
         .eq('status', 'published')
+        .or(`publish_at.is.null,publish_at.lte.${new Date().toISOString()}`)
         .contains('categories', [c])
         .neq('id', id)
         .order('like_count', { ascending: false })
@@ -361,6 +475,7 @@ router.get('/:id/related', authOptional, async (req, res) => {
           .from('articles')
           .select(select)
           .eq('status', 'published')
+          .or(`publish_at.is.null,publish_at.lte.${new Date().toISOString()}`)
           .contains('tags', [t])
           .neq('id', id)
           .order('created_at', { ascending: false })

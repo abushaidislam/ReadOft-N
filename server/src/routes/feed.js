@@ -36,6 +36,7 @@ router.get('/', authRequired, async (req, res) => {
       .select('*', { count: 'exact' })
       .in('author_id', authorIds)
       .eq('status', 'published')
+      .or(`publish_at.is.null,publish_at.lte.${new Date().toISOString()}`)
       .order(orderKey, { ascending: !desc })
       .range(start, end)
 
@@ -50,4 +51,3 @@ router.get('/', authRequired, async (req, res) => {
 })
 
 export default router
-

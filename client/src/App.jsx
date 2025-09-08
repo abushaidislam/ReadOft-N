@@ -9,6 +9,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
+import Preview from './pages/Preview.jsx'
 import Dashboard from './pages/Dashboard'
 import Editor from './pages/Editor'
 import Profile from './pages/Profile'
@@ -57,6 +58,7 @@ function App() {
         <Route path="/category/:slug" element={<Category />} />
         <Route path="/article/:id" element={<Article />} />
         <Route path="/a/:slug" element={<Article />} />
+        <Route path="/p/:token" element={<Preview />} />
         <Route path="/author/:id" element={<Author />} />
         <Route element={<ProtectedRoute roles={["reader","author","admin"]} />}> 
           <Route path="/feed" element={<Feed />} />

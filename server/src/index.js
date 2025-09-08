@@ -20,6 +20,7 @@ import bookmarksRoutes from './routes/bookmarks.js'
 import searchRoutes from './routes/search.js'
 import seoRoutes from './routes/seo.js'
 import reportsRoutes from './routes/reports.js'
+import { startPublishScheduler } from './utils/scheduler.js'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -53,3 +54,5 @@ app.use((err, _req, res, _next) => {
 })
 
 app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`))
+// Start background scheduler for scheduled publishing
+startPublishScheduler()
