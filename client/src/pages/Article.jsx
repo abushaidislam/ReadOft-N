@@ -4,7 +4,9 @@ import { useAuth } from '../state/AuthContext.jsx'
 import useMeta from '../utils/useMeta.js'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
+import remarkSlug from 'remark-slug'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+import rehypeHighlight from 'rehype-highlight'
 import Comments from '../components/Comments.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
 
@@ -18,6 +20,7 @@ export default function Article() {
   const [progress, setProgress] = useState(0)
   const [related, setRelated] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
+  const [toc, setToc] = useState([])
 
   useEffect(() => {
     const path = slug ? `/articles/slug/${slug}` : `/articles/${id}`
@@ -69,6 +72,25 @@ export default function Article() {
       window.removeEventListener('resize', handler)
     }
   }, [])
+
+  // Build TOC from rendered headings (h2/h3) for consistent anchors
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const list = []
+      document.querySelectorAll('.markdown h2, .markdown h3').forEach((el) => {
+        const text = el.textContent || ''
+        const level = el.tagName === 'H2' ? 2 : 3
+        let idAttr = el.getAttribute('id')
+        if (!idAttr) {
+          idAttr = text.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-')
+          if (idAttr) el.setAttribute('id', idAttr)
+        }
+        if (idAttr) list.push({ id: idAttr, text, level })
+      })
+      setToc(list)
+    }, 0)
+    return () => clearTimeout(t)
+  }, [article?.content])
 
   const readingMinutes = useMemo(() => {
     const text = article?.content || ''
@@ -131,6 +153,22 @@ export default function Article() {
     } catch {}
   }
 
+  // extend sanitize schema to keep ids and code classes
+  const mdSchema = {
+    ...defaultSchema,
+    attributes: {
+      ...(defaultSchema.attributes || {}),
+      code: [...(defaultSchema.attributes?.code || []), ['className']],
+      pre: [...(defaultSchema.attributes?.pre || []), ['className']],
+      h1: [...(defaultSchema.attributes?.h1 || []), ['id']],
+      h2: [...(defaultSchema.attributes?.h2 || []), ['id']],
+      h3: [...(defaultSchema.attributes?.h3 || []), ['id']],
+      h4: [...(defaultSchema.attributes?.h4 || []), ['id']],
+      h5: [...(defaultSchema.attributes?.h5 || []), ['id']],
+      h6: [...(defaultSchema.attributes?.h6 || []), ['id']],
+    },
+  }
+
   return (
     <div className="container page">
       {article && (
@@ -163,11 +201,37 @@ export default function Article() {
         <button className="btn" onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</button>
         <button className="btn" onClick={share}>Share</button>
         <button className="btn" onClick={copyLink}>Copy Link</button>
+        <button className="btn" onClick={async()=>{
+          try {
+            const reason = prompt('Why are you reporting this article?') || ''
+            if (!reason.trim()) return
+            await request('/reports', { method:'POST', body: JSON.stringify({ target_type:'post', target_id: article.id, reason }) })
+            ui.notify('Report submitted. Thank you.', 'info')
+          } catch {}
+        }}>Report</button>
       </div>
-      <div className="markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+      <div className="markdown-layout" style={{ display: 'grid', gridTemplateColumns: toc.length ? 'minmax(0,1fr) 280px' : '1fr', gap: 24 }}>
+        <div className="markdown">
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkSlug]} rehypePlugins={[[rehypeSanitize, mdSchema], rehypeHighlight]}>
           {article.content || ''}
-        </ReactMarkdown>
+          </ReactMarkdown>
+        </div>
+        {toc.length > 0 && (
+          <aside className="toc" style={{ position: 'sticky', top: 88, alignSelf: 'start' }}>
+            <div className="section-card">
+              <h4 style={{marginTop:0}}>Contents</h4>
+              <nav aria-label="Table of contents">
+                <ul style={{ listStyle:'none', padding:0, margin:0 }}>
+                  {toc.map((h) => (
+                    <li key={h.id} style={{ margin: '6px 0', paddingLeft: h.level === 3 ? 12 : 0 }}>
+                      <a href={`#${h.id}`}>{h.text}</a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </div>
+          </aside>
+        )}
       </div>
       <Comments articleId={article.id} />
       {(relatedLoading || related.length > 0) && (

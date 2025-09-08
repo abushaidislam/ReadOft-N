@@ -113,6 +113,16 @@ function CommentItem({ c, childMap, me, onReply, onDeleteSuccess }) {
       <div className="comment-body">{c.content}</div>
       <div className="comment-actions">
         {me && <button className="btn" onClick={() => setShow((s) => !s)}>{show ? 'Cancel' : 'Reply'}</button>}
+        {me && (
+          <button className="btn" onClick={async()=>{
+            try {
+              const reason = prompt('Why are you reporting this comment?') || ''
+              if (!reason.trim()) return
+              await request('/reports', { method:'POST', body: JSON.stringify({ target_type:'comment', target_id: c.id, reason }) })
+              ui.notify('Report submitted. Thank you.', 'info')
+            } catch {}
+          }}>Report</button>
+        )}
         {canDelete && (
           <button className="btn" onClick={del} disabled={busy}>
             {busy ? 'Deleting…' : 'Delete'}

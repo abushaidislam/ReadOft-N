@@ -142,3 +142,32 @@ create table if not exists notifications (
 );
 create index if not exists idx_notifications_user on notifications(user_id, created_at desc);
 create index if not exists idx_notifications_unread on notifications(user_id, is_read);
+
+
+-- Password reset tokens
+create table if not exists password_resets (
+  id uuid primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  token text not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_pwreset_user on password_resets(user_id, created_at desc);
+create index if not exists idx_pwreset_token on password_resets(token);
+
+-- Content/user reports for moderation
+create table if not exists reports (
+  id uuid primary key,
+  reporter_id uuid not null references users(id) on delete cascade,
+  target_type text not null check (target_type in ('post','comment','user')),
+  target_id uuid not null,
+  reason text not null default '',
+  status text not null default 'open' check (status in ('open','reviewed','dismissed','actioned')),
+  reviewed_by uuid null references users(id) on delete set null,
+  reviewed_at timestamptz null,
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_reports_status on reports(status, created_at desc);
+create index if not exists idx_reports_target on reports(target_type, target_id);

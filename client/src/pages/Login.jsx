@@ -33,6 +33,7 @@ export default function Login() {
             <button className="btn btn-primary" type="submit">Login</button>
           </form>
           <p className="muted">No account? <Link to="/register">Sign up</Link></p>
+          <p className="muted">Forgot your password? <Link to="/forgot-password">Reset it</Link></p>
         </div>
         <div className="auth-side">
           <h3>Why join?</h3>

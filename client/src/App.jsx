@@ -7,6 +7,8 @@ import Categories from './pages/Categories'
 import Category from './pages/Category'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
 import Dashboard from './pages/Dashboard'
 import Editor from './pages/Editor'
 import Profile from './pages/Profile'
@@ -48,6 +50,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<Register />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/category/:slug" element={<Category />} />

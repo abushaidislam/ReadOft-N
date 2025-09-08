@@ -8,6 +8,7 @@ export default function Admin() {
   const [pending, setPending] = useState([])
   const [categories, setCategories] = useState([])
   const [apps, setApps] = useState([])
+  const [reports, setReports] = useState([])
   const [catName, setCatName] = useState('')
   const [catSlug, setCatSlug] = useState('')
   const [error, setError] = useState('')
@@ -15,16 +16,18 @@ export default function Admin() {
 
   const load = async () => {
     try {
-      const [u, p, c, a] = await Promise.all([
+      const [u, p, c, a, r] = await Promise.all([
         request('/admin/users'),
         request('/admin/articles/pending'),
         request('/categories'),
         request('/admin/author-requests'),
+        request('/admin/reports'),
       ])
       setUsers(u)
       setPending(p)
       setCategories(c)
       setApps(a)
+      setReports(r)
     } catch (e) {
       setError(e.message)
     }
@@ -72,6 +75,12 @@ export default function Admin() {
   const deleteCategory = async (id) => {
     await request(`/categories/${id}`, { method: 'DELETE' })
     ui.notify('Category deleted', 'success')
+    load()
+  }
+
+  const updateReport = async (id, patch) => {
+    await request(`/admin/reports/${id}`, { method: 'PUT', body: JSON.stringify(patch) })
+    ui.notify('Report updated', 'success')
     load()
   }
 
@@ -214,18 +223,50 @@ export default function Admin() {
     </section>
   )
 
+  const ReportsView = () => (
+    <section className="section-card">
+      <h3 style={{marginTop:0}}>Reports</h3>
+      <div className="muted" style={{marginBottom:8}}>Open: {reports.filter(r=>r.status==='open').length} • Total: {reports.length}</div>
+      <table className="table">
+        <thead>
+          <tr><th>Created</th><th>Target</th><th>Reporter</th><th>Reason</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {reports.map((r) => (
+            <tr key={r.id}>
+              <td>{new Date(r.created_at).toLocaleString()}</td>
+              <td>
+                <span className="chip">{r.target_type}</span>
+                {r.target_type==='post' && <a className="btn btn-link" href={`/article/${r.target_id}`} target="_blank" rel="noreferrer">Open</a>}
+              </td>
+              <td>{r.reporter?.name || r.reporter_id}</td>
+              <td style={{maxWidth:420, whiteSpace:'pre-wrap'}}>{r.reason}</td>
+              <td>{r.status}</td>
+              <td style={{display:'flex', gap:8}}>
+                <button className="btn" onClick={()=>updateReport(r.id, { status: 'reviewed' })}>Review</button>
+                <button className="btn" onClick={()=>updateReport(r.id, { status: 'dismissed' })}>Dismiss</button>
+                <button className="btn" onClick={()=>updateReport(r.id, { status: 'actioned' })}>Actioned</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+
   return (
     <div className="container page">
       <h2>Admin Panel</h2>
       {error && <p className="error">{error}</p>}
       <div className="admin-layout">
         <aside className="admin-sidebar">
-          <nav className="admin-nav" aria-label="Admin sections">
+        <nav className="admin-nav" aria-label="Admin sections">
             <button className={`admin-link ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>Dashboard</button>
             <button className={`admin-link ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>Users</button>
             <button className={`admin-link ${tab==='pending'?'active':''}`} onClick={()=>setTab('pending')}>Pending Posts {pending.length?`(${pending.length})`:''}</button>
             <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
-            <button className={`admin-link ${tab==='applications'?'active':''}`} onClick={()=>setTab('applications')}>Applications {apps.length?`(${apps.length})`:''}</button>
+          <button className={`admin-link ${tab==='applications'?'active':''}`} onClick={()=>setTab('applications')}>Applications {apps.length?`(${apps.length})`:''}</button>
+          <button className={`admin-link ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')}>Reports {reports.filter(r=>r.status==='open').length?`(${reports.filter(r=>r.status==='open').length})`:''}</button>
             <div className="muted" style={{ margin:'12px 4px 4px', fontSize:'.85rem' }}>Quick links</div>
             <Link className="admin-link" to="/editor">New Post</Link>
             <Link className="admin-link" to="/dashboard">Author Dashboard</Link>
@@ -239,6 +280,7 @@ export default function Admin() {
           {tab==='pending' && <PendingView />}
           {tab==='categories' && <CategoriesView />}
           {tab==='applications' && <ApplicationsView />}
+          {tab==='reports' && <ReportsView />}
         </main>
       </div>
     </div>
