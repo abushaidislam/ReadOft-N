@@ -85,7 +85,7 @@ export default function Navbar() {
                   </div>
                   <div className="notif-list">
                     {ui.notifications.length === 0 ? (
-                      <div className="muted" style={{ padding: '8px 0' }}>
+                      <div className="muted" style={{ padding: 'var(--space-sm) 0' }}>
                         No notifications
                       </div>
                     ) : (

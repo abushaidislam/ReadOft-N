@@ -309,7 +309,7 @@ export default function Editor() {
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setThumbFile(e.target.files?.[0] || null)} />
           {(thumbFile || form.thumbnail_url) && (
             <div style={{ marginTop: 8 }}>
-              <img alt="thumbnail" src={thumbFile ? URL.createObjectURL(thumbFile) : form.thumbnail_url} style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />
+              <img alt="thumbnail" src={thumbFile ? URL.createObjectURL(thumbFile) : form.thumbnail_url} style={{ maxWidth: '100%', borderRadius: 'var(--space-sm)', border: '1px solid var(--border)' }} />
             </div>
           )}
         </div>
@@ -360,7 +360,7 @@ export default function Editor() {
         </label>
         {error && <p className="error">{error}</p>}
         {articleId && (
-          <div style={{ display:'flex', gap:8, alignItems:'center', margin:'8px 0' }}>
+          <div style={{ display:'flex', gap:'var(--space-sm)', alignItems:'center', margin:'var(--space-sm) 0' }}>
             <button className="btn" type="button" onClick={async()=>{
               try {
                 const r = await request(`/articles/${articleId}/preview`, { method:'POST' })
