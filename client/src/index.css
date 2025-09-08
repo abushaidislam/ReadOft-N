@@ -146,8 +146,8 @@ h1,h2,h3 { margin: var(--space-10) 0 }
   opacity:.4;
 }
 .hero-inner { position:relative; z-index:2; text-align:center }
-.hero-title { font-size: clamp(var(--space-28), 6vw, var(--space-44)); font-weight:800; letter-spacing:0.3px; background: linear-gradient(90deg,#a5b4fc, #34d399); -webkit-background-clip: text; background-clip: text; color: transparent }
-.hero-sub { color: var(--muted); margin:.5rem 0 1rem }
+.hero-title { font-size: clamp(1.75rem, 4vw, 2.75rem); font-weight:800; letter-spacing:0.3px; background: linear-gradient(90deg,#a5b4fc, #34d399); -webkit-background-clip: text; background-clip: text; color: transparent }
+.hero-sub { color: var(--muted); margin:.5rem 0 1rem; font-size: clamp(1rem, 1.5vw, 1.25rem) }
 .hero-cta { display:flex; gap:var(--space-10); justify-content:center }
 .hero-search { margin:var(--space-md) auto var(--space-sm); display:flex; gap:var(--space-sm); justify-content:center; max-width:800px }
 .hero-input { flex:1; min-width:0; padding: var(--space-14) var(--space-md); border-radius: 999px; background: rgba(0,0,0,.45); color:#e5e7eb; border:var(--space-1) solid var(--border) }
