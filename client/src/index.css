@@ -7,6 +7,8 @@ a { color: var(--text); text-decoration: none }
 
 .nav { position: sticky; top: 0; z-index: 10; background: rgba(11,12,16,0.8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border) }
 .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 }
+.nav-left { display:flex; align-items:center; gap:8px }
+.back-btn { padding:6px 10px }
 .brand { font-weight: 700; letter-spacing: 0.4px }
 .links a { position:relative; margin-right: 16px; color: var(--muted); padding-bottom: 4px }
 .links a::after { content:''; position:absolute; left:0; right:0; bottom:0; height:2px; background: linear-gradient(90deg, var(--primary), var(--accent)); transform: scaleX(0); transform-origin: left; transition: transform .25s ease }

@@ -22,7 +22,9 @@ export default function Navbar() {
   return (
     <header className="nav">
       <div className="container nav-inner">
-        <Link to="/" className="brand">{import.meta.env.VITE_APP_NAME || 'Readoft'}</Link>
+        <div className="nav-left">
+          <Link to="/" className="brand">{import.meta.env.VITE_APP_NAME || 'Readoft'}</Link>
+        </div>
         <button className="mobile-toggle" aria-label="Toggle menu" onClick={() => setOpen(v => !v)}>
           <span className={open ? 'bar rotate-45' : 'bar'}></span>
           <span className={open ? 'bar opacity-0' : 'bar'}></span>
