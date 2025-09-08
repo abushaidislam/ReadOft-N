@@ -86,4 +86,31 @@ router.post('/avatar', authRequired, upload.single('file'), async (req, res) => 
   }
 })
 
+// Generic article media (inline images)
+router.post('/article-media', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file
+    if (!file) return res.status(400).json({ message: 'No file uploaded' })
+    const allowed = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowed.includes(file.mimetype)) return res.status(400).json({ message: 'Invalid file type' })
+
+    const bucket = 'article-media'
+    await ensureBucketPublic(bucket)
+    const ext = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg'
+    const path = `${req.user.id}/${randomUUID()}.${ext}`
+
+    const { error: upErr } = await supabase.storage.from(bucket).upload(path, file.buffer, {
+      contentType: file.mimetype,
+      cacheControl: '3600',
+      upsert: false,
+    })
+    if (upErr) throw upErr
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path)
+    res.status(201).json({ url: pub.publicUrl, path })
+  } catch (e) {
+    console.error('Upload media error:', e)
+    res.status(500).json({ message: e?.message || 'Upload failed' })
+  }
+})
+
 export default router

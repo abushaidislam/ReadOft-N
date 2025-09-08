@@ -246,6 +246,11 @@ h1,h2,h3 { margin: 10px 0 }
 .markdown pre { background: #0f1320; padding: .75rem; border-radius: 8px; border: 1px solid var(--border); overflow: auto }
 .markdown pre code { border: 0; padding: 0; background: transparent }
 
+/* Editor */
+.editor-toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; position:sticky; top:112px; z-index:3; background: var(--bg); padding:8px; border:1px solid var(--border); border-radius:8px }
+.editor-toolbar .btn { padding:6px 10px }
+textarea[placeholder^="Write your content"] { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
+
 /* Auth pages */
 .auth-wrap { display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:stretch }
 .auth-card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25) }
@@ -313,3 +318,6 @@ h1,h2,h3 { margin: 10px 0 }
   .admin-layout { grid-template-columns: 1fr }
   .admin-sidebar { position:static }
 }
+.editor-split { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start }
+.editor-preview { position:sticky; top:112px; height:fit-content }
+@media (max-width: 1000px) { .editor-split { grid-template-columns: 1fr } .editor-preview { position:static } }

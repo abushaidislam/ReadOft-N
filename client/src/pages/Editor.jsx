@@ -20,6 +20,7 @@ export default function Editor() {
   const [savingNote, setSavingNote] = useState('')
   const [articleId, setArticleId] = useState(id || '')
   const [revisions, setRevisions] = useState([])
+  const editorRef = useRef(null)
 
   function slugify(input) {
     return String(input || '')
@@ -128,12 +129,181 @@ export default function Editor() {
     }
   }
 
+  function wrapSelection(left, right) {
+    const ta = editorRef.current
+    if (!ta) return
+    const start = ta.selectionStart || 0
+    const end = ta.selectionEnd || 0
+    const before = form.content.slice(0, start)
+    const sel = form.content.slice(start, end)
+    const after = form.content.slice(end)
+    const next = `${before}${left}${sel || 'text'}${right}${after}`
+    setForm({ ...form, content: next })
+    setTimeout(() => { ta.focus(); ta.selectionStart = start + left.length; ta.selectionEnd = start + left.length + (sel || 'text').length }, 0)
+  }
+  function insertLine(prefix) {
+    const ta = editorRef.current
+    if (!ta) return
+    const start = ta.selectionStart || 0
+    const end = ta.selectionEnd || 0
+    const content = form.content
+    const lineStart = content.lastIndexOf('\n', start - 1) + 1
+    const next = content.slice(0, lineStart) + prefix + content.slice(lineStart)
+    setForm({ ...form, content: next })
+    setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = start + prefix.length }, 0)
+  }
+
+  async function uploadOne(file) {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api'}/uploads/article-media`, {
+      method: 'POST',
+      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+      body: fd,
+    })
+    const data = await res.json().catch(()=>({}))
+    if (!res.ok) throw new Error(data.message || 'Upload failed')
+    return data.url
+  }
+
+  async function insertImages(files) {
+    if (!files || files.length === 0) return
+    const ta = editorRef.current
+    const urls = []
+    for (const f of files) {
+      try { const url = await uploadOne(f); urls.push(url) } catch {}
+    }
+    if (urls.length === 0) return
+    const md = urls.map((u) => `\n\n![image](${u})`).join('') + '\n\n'
+    const start = ta?.selectionStart || form.content.length
+    const before = form.content.slice(0, start)
+    const after = form.content.slice(start)
+    setForm({ ...form, content: before + md + after })
+    setTimeout(() => { ta?.focus(); if (ta) { ta.selectionStart = ta.selectionEnd = start + md.length } }, 0)
+  }
+
+  function handleMediaSelect(e) { insertImages(e.target.files) }
+  function handleDrop(e) { if (e.dataTransfer?.files?.length) { e.preventDefault(); insertImages(e.dataTransfer.files) } }
+  function handlePaste(e) {
+    const items = e.clipboardData?.items || []
+    const files = []
+    for (const it of items) { if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f) } }
+    if (files.length) { e.preventDefault(); insertImages(files) }
+  }
+
+  function insertLink() {
+    const ta = editorRef.current
+    const start = ta?.selectionStart || 0
+    const end = ta?.selectionEnd || 0
+    const before = form.content.slice(0, start)
+    const sel = form.content.slice(start, end) || 'link text'
+    const after = form.content.slice(end)
+    const url = prompt('Enter URL', 'https://') || ''
+    if (!url) return
+    const md = `[${sel}](${url})`
+    const next = before + md + after
+    setForm({ ...form, content: next })
+    setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = start + md.length } }, 0)
+  }
+
+  function insertHr() {
+    const ta = editorRef.current
+    const start = ta?.selectionStart || form.content.length
+    const before = form.content.slice(0, start)
+    const after = form.content.slice(start)
+    const md = `\n\n---\n\n`
+    setForm({ ...form, content: before + md + after })
+    setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = start + md.length } }, 0)
+  }
+
+  function insertCodeBlock() {
+    const ta = editorRef.current
+    const lang = prompt('Language (optional)', 'javascript') || ''
+    const start = ta?.selectionStart || 0
+    const end = ta?.selectionEnd || 0
+    const before = form.content.slice(0, start)
+    const sel = form.content.slice(start, end) || 'code'
+    const after = form.content.slice(end)
+    const md = `\n\n\`\`\`${lang}\n${sel}\n\`\`\`\n\n`.replace(/\\`\\`\\`/g,'```')
+    setForm({ ...form, content: before + md + after })
+    setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = start + md.length } }, 0)
+  }
+
+  function clearFormatting() {
+    const ta = editorRef.current
+    const start = ta?.selectionStart || 0
+    const end = ta?.selectionEnd || 0
+    const before = form.content.slice(0, start)
+    const sel = form.content.slice(start, end)
+    const after = form.content.slice(end)
+    const cleaned = sel.replace(/[\*\_\~\`]+/g, '').replace(/<\/?u>/g,'')
+    setForm({ ...form, content: before + cleaned + after })
+    setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = start; ta.selectionEnd = start + cleaned.length } }, 0)
+  }
+
+  function handleKeydown(e) {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSelection('**','**'); return }
+      if (e.key.toLowerCase() === 'i') { e.preventDefault(); wrapSelection('_','_'); return }
+      if (e.key.toLowerCase() === 'u') { e.preventDefault(); wrapSelection('<u>','</u>'); return }
+      if (e.key.toLowerCase() === 'k') { e.preventDefault(); insertLink(); return }
+    }
+    if (e.key === 'Enter') {
+      const ta = editorRef.current
+      if (!ta) return
+      const pos = ta.selectionStart || 0
+      const content = form.content
+      const lineStart = content.lastIndexOf('\n', pos - 1) + 1
+      const line = content.slice(lineStart, pos)
+      const mNum = line.match(/^(\d+)\.\s+/)
+      const bullet = /^(- \[ \] |-\s+)/.test(line) ? (line.startsWith('- [ ] ') ? '- [ ] ' : '- ') : ''
+      if (mNum) {
+        e.preventDefault()
+        const n = parseInt(mNum[1] || '1', 10) + 1
+        const insert = `\n${n}. `
+        const before = content.slice(0, pos)
+        const after = content.slice(pos)
+        const next = before + insert + after
+        setForm({ ...form, content: next })
+        setTimeout(()=>{ ta.focus(); ta.selectionStart = ta.selectionEnd = pos + insert.length },0)
+      } else if (bullet) {
+        e.preventDefault()
+        const insert = `\n${bullet}`
+        const before = content.slice(0, pos)
+        const after = content.slice(pos)
+        const next = before + insert + after
+        setForm({ ...form, content: next })
+        setTimeout(()=>{ ta.focus(); ta.selectionStart = ta.selectionEnd = pos + insert.length },0)
+      }
+    }
+  }
+
   return (
-    <div className="container page narrow">
+    <div className="container page">
       <h2>{id ? 'Edit Article' : 'New Article'}</h2>
       {savingNote && <p className="muted" style={{marginTop:-8}}>Status: {savingNote}</p>}
+      <div className="editor-split">
       <form onSubmit={onSubmit} className="form">
         <input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+        <div className="editor-toolbar">
+          <button type="button" className="btn" onClick={() => wrapSelection('**','**')}>Bold</button>
+          <button type="button" className="btn" onClick={() => wrapSelection('_','_')}>Italic</button>
+          <button type="button" className="btn" onClick={() => wrapSelection('<u>','</u>')}>Underline</button>
+          <button type="button" className="btn" onClick={insertLink}>Link</button>
+          <button type="button" className="btn" onClick={() => insertLine('# ')}>H1</button>
+          <button type="button" className="btn" onClick={() => insertLine('## ')}>H2</button>
+          <button type="button" className="btn" onClick={() => insertLine('### ')}>H3</button>
+          <button type="button" className="btn" onClick={() => insertLine('> ')}>Quote</button>
+          <button type="button" className="btn" onClick={() => wrapSelection('`','`')}>Code</button>
+          <button type="button" className="btn" onClick={() => insertLine('- ')}>Bulleted</button>
+          <button type="button" className="btn" onClick={() => insertLine('1. ')}>Ordered</button>
+          <button type="button" className="btn" onClick={() => insertLine('- [ ] ')}>Task</button>
+          <button type="button" className="btn" onClick={insertHr}>HR</button>
+          <button type="button" className="btn" onClick={insertCodeBlock}>Code Block</button>
+          <button type="button" className="btn" onClick={clearFormatting}>Clear</button>
+          <input id="media-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={handleMediaSelect} />
+          <button type="button" className="btn btn-primary" onClick={() => document.getElementById('media-input').click()}>Add Image</button>
+        </div>
         <div>
           <label>Thumbnail image</label>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setThumbFile(e.target.files?.[0] || null)} />
@@ -143,7 +313,16 @@ export default function Editor() {
             </div>
           )}
         </div>
-        <textarea placeholder="Content" rows={10} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
+        <textarea
+          ref={editorRef}
+          placeholder="Write your content in Markdown… (paste or drop images to insert)"
+          rows={16}
+          value={form.content}
+          onChange={(e) => setForm({ ...form, content: e.target.value })}
+          onDrop={handleDrop}
+          onPaste={handlePaste}
+          onKeyDown={handleKeydown}
+        />
         <input placeholder="Tags (comma separated)" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
         <label>Categories:</label>
         <div className="chips">
@@ -184,6 +363,18 @@ export default function Editor() {
           {saving ? 'Saving…' : (form.status === 'pending' && auth.user?.role !== 'admin' ? 'Submit for review' : 'Save')}
         </button>
       </form>
+      <aside className="editor-preview">
+        <div className="card">
+          <h3 className="card-title">Live Preview</h3>
+          <div className="markdown">
+            {form.title && <h1>{form.title}</h1>}
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+              {form.content || ''}
+            </ReactMarkdown>
+          </div>
+        </div>
+      </aside>
+      </div>
       {articleId && (
         <div className="section-card" style={{ marginTop: 16 }}>
           <h3 className="card-title">Revisions</h3>
@@ -201,14 +392,6 @@ export default function Editor() {
           )}
         </div>
       )}
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 className="card-title">Preview</h3>
-        <div className="markdown">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-            {form.content || ''}
-          </ReactMarkdown>
-        </div>
-      </div>
     </div>
   )
 }
