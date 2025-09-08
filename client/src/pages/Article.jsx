@@ -17,6 +17,7 @@ export default function Article() {
   const [saved, setSaved] = useState(false)
   const [progress, setProgress] = useState(0)
   const [related, setRelated] = useState([])
+  const [relatedLoading, setRelatedLoading] = useState(false)
 
   useEffect(() => {
     const path = slug ? `/articles/slug/${slug}` : `/articles/${id}`
@@ -26,7 +27,11 @@ export default function Article() {
         const aid = a.id
         request(`/likes/status/${aid}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {})
         request(`/bookmarks/status/${aid}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {})
-        request(`/articles/${aid}/related`, { noGlobalLoading: true }).then(setRelated).catch(() => {})
+        setRelatedLoading(true)
+        request(`/articles/${aid}/related`, { noGlobalLoading: true })
+          .then((r) => setRelated(Array.isArray(r) ? r : []))
+          .catch(() => setRelated([]))
+          .finally(() => setRelatedLoading(false))
       })
       .catch((e) => setError(e.message))
   }, [id, slug])
@@ -165,14 +170,26 @@ export default function Article() {
         </ReactMarkdown>
       </div>
       <Comments articleId={article.id} />
-      {related.length > 0 && (
+      {(relatedLoading || related.length > 0) && (
         <section style={{ marginTop: 24 }}>
           <h3 style={{ marginTop: 0 }}>You might also like</h3>
-          <div className="grid">
-            {related.map((a, idx) => (
-              <ArticleCard key={a.id} article={a} index={idx} />
-            ))}
-          </div>
+          {relatedLoading ? (
+            <div className="grid">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div className="card skeleton" key={i}>
+                  <div className="skeleton-thumb" />
+                  <div className="skeleton-line w-80" />
+                  <div className="skeleton-line w-60" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid">
+              {related.map((a, idx) => (
+                <ArticleCard key={a.id} article={a} index={idx} />
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>

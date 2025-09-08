@@ -337,7 +337,7 @@ router.get('/:id/related', authOptional, async (req, res) => {
       .maybeSingle()
     if (bErr) throw bErr
     if (!base) return res.status(404).json({ message: 'Not found' })
-    const select = 'id,slug,title,thumbnail_url,like_count,created_at,author:users!articles_author_id_fkey(id,name,avatar_url)'
+    const select = 'id,slug,title,thumbnail_url,like_count,created_at,categories,tags,author:users!articles_author_id_fkey(id,name,avatar_url)'
     const related = new Map()
     // by categories
     const cats = Array.isArray(base.categories) ? base.categories : []
@@ -369,8 +369,25 @@ router.get('/:id/related', authOptional, async (req, res) => {
         if (related.size >= 6) break
       }
     }
-    const items = Array.from(related.values()).slice(0, 6)
-    res.json(items)
+    // score by overlap (categories weighted higher), then likes and recency
+    const baseCats = new Set(cats)
+    const baseTags = new Set(tags)
+    const items = Array.from(related.values())
+    const scored = items.map((a) => {
+      const aCats = new Set(Array.isArray(a.categories) ? a.categories : [])
+      const aTags = new Set(Array.isArray(a.tags) ? a.tags : [])
+      let catOverlap = 0
+      for (const c of aCats) if (baseCats.has(c)) catOverlap++
+      let tagOverlap = 0
+      for (const t of aTags) if (baseTags.has(t)) tagOverlap++
+      const like = a.like_count || 0
+      const ts = a.created_at ? new Date(a.created_at).getTime() : 0
+      const score = catOverlap * 2 + tagOverlap + like * 0.001 + ts / 1e14
+      return { score, a }
+    })
+    scored.sort((x, y) => y.score - x.score)
+    const itemsSorted = scored.map(s => s.a).slice(0, 6)
+    res.json(itemsSorted)
   } catch (e) {
     console.error('related error', e)
     res.status(500).json({ message: 'Failed to load related' })
