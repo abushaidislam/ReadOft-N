@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
 
@@ -12,6 +12,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [pageInfo, setPageInfo] = useState(null)
+  const [sort, setSort] = useState('-created_at') // '-created_at' | '-like_count'
+  const [muted, setMuted] = useState(() => {
+    try { return localStorage.getItem('heroMuted') !== 'false' } catch { return true }
+  })
+  const heroVideoRef = useRef(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -21,7 +26,7 @@ export default function Home() {
     if (category) params.set('category', category)
     params.set('page', String(page))
     params.set('limit', '12')
-    params.set('sort', '-created_at')
+    params.set('sort', String(sort))
     const endpoint = q ? '/search' : '/articles'
     const data = await request(`${endpoint}?${params.toString()}`, { noGlobalLoading: true })
     setItems(data.items)
@@ -30,16 +35,19 @@ export default function Home() {
   }
 
   useEffect(() => { fetchData().catch(console.error) }, [page])
+  useEffect(() => { fetchData().catch(console.error) }, [sort])
   useEffect(() => { request('/categories', { noGlobalLoading: true }).then(setCategories).catch(() => {}) }, [])
+  useEffect(() => { try { localStorage.setItem('heroMuted', String(muted)) } catch {} }, [muted])
 
   return (
     <div className="container page">
       <section className="hero">
         {/* Background video */}
         <video
+          ref={heroVideoRef}
           className="hero-video-bg"
           src="/Hero (1).mp4"
-          muted
+          muted={muted}
           autoPlay
           loop
           playsInline
@@ -47,6 +55,14 @@ export default function Home() {
           aria-hidden="true"
         />
         <div className="hero-overlay" aria-hidden="true" />
+        <button
+          type="button"
+          className="hero-audio-toggle"
+          aria-label={muted ? 'Unmute hero video' : 'Mute hero video'}
+          onClick={() => setMuted((m) => !m)}
+        >
+          {muted ? 'Sound Off' : 'Sound On'}
+        </button>
         <div className="hero-inner">
           <h1 className="hero-title">Read. Write. Discover.</h1>
           <p className="hero-sub">Fresh articles from authors you follow and love.</p>
@@ -57,6 +73,10 @@ export default function Home() {
         </div>
         <div className="hero-glow" aria-hidden="true" />
       </section>
+      <div className="tabs" style={{ marginTop: 12 }}>
+        <button className={`tab ${sort === '-created_at' ? 'active' : ''}`} onClick={() => { setSort('-created_at'); setPage(1) }}>Latest</button>
+        <button className={`tab ${sort === '-like_count' ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPage(1) }}>Trending</button>
+      </div>
       <div className="filters">
         <input placeholder="Search title..." value={q} onChange={(e) => setQ(e.target.value)} />
         <input placeholder="Tag" value={tag} onChange={(e) => setTag(e.target.value)} />

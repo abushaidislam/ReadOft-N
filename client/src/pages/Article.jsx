@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import ReactMarkdown from 'react-markdown'
@@ -13,6 +13,7 @@ export default function Article() {
   const [error, setError] = useState('')
   const [liked, setLiked] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     const path = slug ? `/articles/slug/${slug}` : `/articles/${id}`
@@ -28,6 +29,30 @@ export default function Article() {
       }
     }
   }, [id])
+
+  // Reading progress across the article content
+  useEffect(() => {
+    const handler = () => {
+      const el = document.querySelector('.markdown')
+      if (!el) return setProgress(0)
+      const docHeight = el.scrollHeight
+      const viewH = window.innerHeight
+      const maxScrollable = Math.max(1, docHeight - viewH)
+      const scrolled = Math.min(Math.max(window.scrollY - (el.getBoundingClientRect().top + window.scrollY - 0), 0), maxScrollable)
+      const pct = Math.round((scrolled / maxScrollable) * 100)
+      setProgress(Number.isFinite(pct) ? pct : 0)
+    }
+    handler()
+    window.addEventListener('scroll', handler, { passive: true })
+    window.addEventListener('resize', handler)
+    return () => { window.removeEventListener('scroll', handler); window.removeEventListener('resize', handler) }
+  }, [])
+
+  const readingMinutes = useMemo(() => {
+    const text = article?.content || ''
+    const words = text.trim().split(/\s+/).filter(Boolean).length
+    return Math.max(1, Math.ceil(words / 200))
+  }, [article?.content])
 
   if (error) return <div className="container page"><p className="error">{error}</p></div>
   if (!article) return <div className="container page"><p>Loading...</p></div>
@@ -64,12 +89,14 @@ export default function Article() {
 
   return (
     <div className="container page">
+      <div className="read-progress" style={{ width: `${progress}%` }} aria-hidden="true" />
       {article.thumbnail_url && (
         <img src={article.thumbnail_url} alt="thumbnail" className="hero-thumb" />
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1>{article.title}</h1>
+          <div className="muted">{readingMinutes} min read</div>
           <p className="muted">{new Date(article.created_at).toLocaleString()} • ❤ {article.like_count}</p>
         </div>
         <a className="btn" href={`/author/${article.author_id}`}>View Author</a>
