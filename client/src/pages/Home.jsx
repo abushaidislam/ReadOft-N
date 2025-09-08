@@ -1,15 +1,18 @@
 import { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
 
 export default function Home() {
   const { request } = useAuth()
+  const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [q, setQ] = useState('')
   const [tag, setTag] = useState('')
   const [category, setCategory] = useState('')
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [page, setPage] = useState(1)
   const [pageInfo, setPageInfo] = useState(null)
   const [sort, setSort] = useState('-created_at') // '-created_at' | '-like_count'
@@ -18,17 +21,24 @@ export default function Home() {
     try { return localStorage.getItem('heroMuted') !== 'false' } catch { return true }
   })
   const heroVideoRef = useRef(null)
+  const heroSearchRef = useRef(null)
+  const sentinelRef = useRef(null)
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggest, setShowSuggest] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(-1)
+  const [supportsIO] = useState(() => typeof window !== 'undefined' && 'IntersectionObserver' in window)
   const onHeroSearch = (e) => {
     e.preventDefault()
     setPage(1)
-    fetchData().then(() => {
+    fetchData(true).then(() => {
       const el = document.getElementById('feed')
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }).catch(()=>{})
   }
 
-  const fetchData = async () => {
-    setLoading(true)
+  const fetchData = async (reset = false) => {
+    if (reset) setLoading(true)
+    else if (page > 1) setLoadingMore(true)
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (tag) params.set('tag', tag)
@@ -39,15 +49,61 @@ export default function Home() {
     if (period) params.set('period', period)
     const endpoint = q ? '/search' : '/articles'
     const data = await request(`${endpoint}?${params.toString()}`, { noGlobalLoading: true })
-    setItems(data.items)
+    setItems((prev) => (reset || page === 1 ? data.items : [...prev, ...data.items]))
     setPageInfo(data.pageInfo || null)
     setLoading(false)
+    setLoadingMore(false)
   }
 
-  useEffect(() => { fetchData().catch(console.error) }, [page])
-  useEffect(() => { fetchData().catch(console.error) }, [sort])
+  useEffect(() => { fetchData(page === 1).catch(console.error) }, [page])
+  useEffect(() => { setPage(1); fetchData(true).catch(console.error) }, [sort, period])
   useEffect(() => { request('/categories', { noGlobalLoading: true }).then(setCategories).catch(() => {}) }, [])
   useEffect(() => { try { localStorage.setItem('heroMuted', String(muted)) } catch {} }, [muted])
+
+  // live suggestions for hero search
+  useEffect(() => {
+    let t
+    if (q && q.trim().length >= 2) {
+      t = setTimeout(async () => {
+        try {
+          const params = new URLSearchParams({ q: q.trim(), page: '1', limit: '5', sort: '-like_count' })
+          const data = await request(`/search?${params.toString()}`, { noGlobalLoading: true })
+          setSuggestions(data.items || [])
+          setShowSuggest(true)
+          setActiveIdx(0)
+        } catch { setSuggestions([]); setShowSuggest(false) }
+      }, 250)
+    } else {
+      setSuggestions([])
+      setShowSuggest(false)
+    }
+    return () => t && clearTimeout(t)
+  }, [q])
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!heroSearchRef.current) return
+      if (!heroSearchRef.current.contains(e.target)) setShowSuggest(false)
+    }
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [])
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!supportsIO) return
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver((entries) => {
+      const first = entries[0]
+      const totalPages = pageInfo?.totalPages || 1
+      if (first.isIntersecting && !loading && !loadingMore && page < totalPages) {
+        setPage((p) => p + 1)
+      }
+    }, { rootMargin: '200px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [pageInfo, loading, loadingMore, supportsIO])
 
   return (
     <>
@@ -81,18 +137,40 @@ export default function Home() {
             <a className="btn btn-primary" href="#feed">Explore Articles</a>
             <a className="btn" href="/register">Join Free</a>
           </div>
-            <form className="hero-search" onSubmit={onHeroSearch} role="search" aria-label="Search articles">
+            <form ref={heroSearchRef} className="hero-search" onSubmit={onHeroSearch} role="search" aria-label="Search articles">
               <input
                 className="hero-input"
                 placeholder="Search for any article..."
                 value={q}
-                onChange={(e) => setQ(e.target.value)}
+                onChange={(e) => { setQ(e.target.value); setShowSuggest(true) }}
+                onKeyDown={(e) => {
+                  if (!showSuggest || suggestions.length === 0) return
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => Math.min(suggestions.length - 1, i + 1)) }
+                  else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => Math.max(0, i - 1)) }
+                  else if (e.key === 'Enter') { if (activeIdx >= 0) { e.preventDefault(); const s = suggestions[activeIdx]; navigate(s.slug ? `/a/${s.slug}` : `/article/${s.id}`); setShowSuggest(false) } }
+                  else if (e.key === 'Escape') { setShowSuggest(false) }
+                }}
               />
               <button className="btn btn-primary" type="submit">Search</button>
+              {showSuggest && suggestions.length > 0 && (
+                <div className="suggest">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={`suggest-item ${i === activeIdx ? 'active' : ''}`}
+                      onClick={() => navigate(s.slug ? `/a/${s.slug}` : `/article/${s.id}`)}
+                    >
+                      <span className="title">{s.title}</span>
+                      <span className="meta">{new Date(s.created_at).toLocaleDateString()}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </form>
             <div className="hero-chips">
               {(categories.slice(0,6) || []).map((c) => (
-                <button key={c.id} className="chip" type="button" onClick={() => { setCategory(c.slug); setPage(1); fetchData() }}>{c.name}</button>
+                <button key={c.id} className="chip" type="button" onClick={() => { setCategory(c.slug); setPage(1); fetchData(true) }}>{c.name}</button>
               ))}
             </div>
           </div>
@@ -104,6 +182,7 @@ export default function Home() {
         <button className={`tab ${sort === '-created_at' && !period ? 'active' : ''}`} onClick={() => { setSort('-created_at'); setPeriod(''); setPage(1) }}>Latest</button>
         <button className={`tab ${sort === '-like_count' && !period ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPeriod(''); setPage(1) }}>Trending</button>
         <button className={`tab ${period === 'week' ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPeriod('week'); setPage(1) }}>This Week</button>
+        <button className={`tab ${period === 'month' ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPeriod('month'); setPage(1) }}>This Month</button>
       </div>
       <div className="filters">
         <input placeholder="Search title..." value={q} onChange={(e) => setQ(e.target.value)} />
@@ -114,7 +193,7 @@ export default function Home() {
             <option value={c.slug} key={c.id}>{c.name}</option>
           ))}
         </select>
-        <button className="btn" onClick={fetchData}>Apply</button>
+        <button className="btn" onClick={() => { setPage(1); fetchData(true) }}>Apply</button>
       </div>
       {loading ? (
         <div className="grid" id="feed">
@@ -136,12 +215,16 @@ export default function Home() {
           <div className="grid" id="feed">
             {items.map((a, idx) => <ArticleCard article={a} key={a.id} index={idx} />)}
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
-            <button className="btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
-            <span className="muted">
-              Page {pageInfo?.page || page} / {pageInfo?.totalPages || '?'}
-            </span>
-            <button className="btn" disabled={pageInfo && page >= pageInfo.totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
+          <div ref={sentinelRef} style={{ display:'flex', justifyContent:'center', marginTop:16, paddingBottom:16 }}>
+            {supportsIO ? (
+              loadingMore ? <div className="spinner" aria-label="Loading more" /> : (
+                <span className="muted">{pageInfo && page >= (pageInfo.totalPages || 1) ? 'No more results' : ''}</span>
+              )
+            ) : (
+              <button className="btn" disabled={loadingMore || (pageInfo && page >= (pageInfo.totalPages || 1))} onClick={() => setPage((p) => p + 1)}>
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
+            )}
           </div>
         </>
       )}

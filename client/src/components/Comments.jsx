@@ -48,7 +48,7 @@ export default function Comments({ articleId }) {
       {auth.user ? (
         <div className="comment-form">
           <textarea rows={3} placeholder="Write a comment…" value={content} onChange={(e) => setContent(e.target.value)} />
-          <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className={`btn btn-primary ${posting ? 'loading' : ''}`} disabled={posting || !content.trim()} onClick={() => submit(null)}>
               {posting ? 'Posting…' : 'Post'}
             </button>
@@ -103,7 +103,7 @@ function CommentItem({ c, childMap, me, onReply, onDeleteSuccess }) {
         {c.user?.avatar_url ? (
           <img src={c.user.avatar_url} alt="avatar" className="avatar" />
         ) : (
-          <span className="avatar avatar-fallback">{(c.user?.name || 'U').slice(0,1).toUpperCase()}</span>
+          <span className="avatar avatar-fallback">{(c.user?.name || 'U').slice(0, 1).toUpperCase()}</span>
         )}
         <div className="meta">
           <strong>{c.user?.name || 'User'}</strong>
@@ -113,12 +113,16 @@ function CommentItem({ c, childMap, me, onReply, onDeleteSuccess }) {
       <div className="comment-body">{c.content}</div>
       <div className="comment-actions">
         {me && <button className="btn" onClick={() => setShow((s) => !s)}>{show ? 'Cancel' : 'Reply'}</button>}
-        {canDelete && <button className="btn" onClick={del} disabled={busy}>{busy ? 'Deleting…' : 'Delete'}</button>}
+        {canDelete && (
+          <button className="btn" onClick={del} disabled={busy}>
+            {busy ? 'Deleting…' : 'Delete'}
+          </button>
+        )}
       </div>
       {show && (
         <div className="comment-form reply">
           <textarea rows={2} placeholder="Reply…" value={text} onChange={(e) => setText(e.target.value)} />
-          <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className={`btn btn-primary ${busy ? 'loading' : ''}`} disabled={busy || !text.trim()} onClick={() => onReply(c.id, text, setText)}>
               {busy ? 'Posting…' : 'Reply'}
             </button>
@@ -147,3 +151,4 @@ function buildTree(list) {
   }
   return { top, children }
 }
+

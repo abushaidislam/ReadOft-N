@@ -17,7 +17,14 @@ export default function Article() {
 
   useEffect(() => {
     const path = slug ? `/articles/slug/${slug}` : `/articles/${id}`
-    request(path).then((a) => { setArticle(a); const aid = a.id; request(`/likes/status/${aid}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {}); request(`/bookmarks/status/${aid}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {}) }).catch((e) => setError(e.message))
+    request(path)
+      .then((a) => {
+        setArticle(a)
+        const aid = a.id
+        request(`/likes/status/${aid}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {})
+        request(`/bookmarks/status/${aid}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {})
+      })
+      .catch((e) => setError(e.message))
   }, [id, slug])
 
   useEffect(() => {
@@ -38,14 +45,20 @@ export default function Article() {
       const docHeight = el.scrollHeight
       const viewH = window.innerHeight
       const maxScrollable = Math.max(1, docHeight - viewH)
-      const scrolled = Math.min(Math.max(window.scrollY - (el.getBoundingClientRect().top + window.scrollY - 0), 0), maxScrollable)
+      const scrolled = Math.min(
+        Math.max(window.scrollY - (el.getBoundingClientRect().top + window.scrollY - 0), 0),
+        maxScrollable,
+      )
       const pct = Math.round((scrolled / maxScrollable) * 100)
       setProgress(Number.isFinite(pct) ? pct : 0)
     }
     handler()
     window.addEventListener('scroll', handler, { passive: true })
     window.addEventListener('resize', handler)
-    return () => { window.removeEventListener('scroll', handler); window.removeEventListener('resize', handler) }
+    return () => {
+      window.removeEventListener('scroll', handler)
+      window.removeEventListener('resize', handler)
+    }
   }, [])
 
   const readingMinutes = useMemo(() => {
@@ -67,7 +80,9 @@ export default function Article() {
     } catch {}
   }
   const follow = async () => {
-    try { await request(`/follows/${article.author_id}`, { method: 'POST' }) } catch {}
+    try {
+      await request(`/follows/${article.author_id}`, { method: 'POST' })
+    } catch {}
   }
   const toggleSave = async () => {
     try {
@@ -97,7 +112,7 @@ export default function Article() {
         <div>
           <h1>{article.title}</h1>
           <div className="muted">{readingMinutes} min read</div>
-          <p className="muted">{new Date(article.created_at).toLocaleString()} • ❤ {article.like_count}</p>
+          <p className="muted">{new Date(article.created_at).toLocaleString()} • {article.like_count} likes</p>
         </div>
         <a className="btn" href={`/author/${article.author_id}`}>View Author</a>
       </div>
@@ -116,3 +131,4 @@ export default function Article() {
     </div>
   )
 }
+
