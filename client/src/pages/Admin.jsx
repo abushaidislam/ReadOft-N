@@ -39,6 +39,13 @@ export default function Admin() {
     load()
   }
 
+  const reject = async (id) => {
+    const reason = prompt('Reason for rejection? (optional)') || ''
+    await request(`/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) })
+    ui.notify('Article rejected', 'info')
+    load()
+  }
+
   const deleteArticle = async (id) => {
     if (!confirm('Delete this article? This cannot be undone.')) return
     await request(`/articles/${id}`, { method: 'DELETE' })
@@ -101,6 +108,7 @@ export default function Admin() {
                   <td>{a.author_id}</td>
                   <td style={{display:'flex', gap:8}}>
                     <button className="btn btn-primary" onClick={() => approve(a.id)}>Approve</button>
+                    <button className="btn" onClick={() => reject(a.id)}>Reject</button>
                     <button className="btn" onClick={() => deleteArticle(a.id)}>Delete</button>
                   </td>
                 </tr>

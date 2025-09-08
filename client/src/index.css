@@ -210,6 +210,12 @@ h1,h2,h3 { margin: 10px 0 }
 .stat .label { color: var(--muted); font-size:.85rem }
 
 .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#0f1320; color:#cbd5e1; border:1px solid var(--border); font-size:.8rem }
+.badge.draft { background:#0f1320; color:#cbd5e1; border-color: var(--border) }
+.badge.pending { background: rgba(251,191,36,.15); color:#fbbf24; border-color: rgba(251,191,36,.35) }
+.badge.published { background: rgba(16,185,129,.15); color:#10b981; border-color: rgba(16,185,129,.35) }
+[data-theme='light'] .badge.draft { background:#f3f4f6; color:#374151; border-color:#e5e7eb }
+[data-theme='light'] .badge.pending { background: rgba(251,191,36,.15); color:#b45309; border-color: rgba(251,191,36,.35) }
+[data-theme='light'] .badge.published { background: rgba(16,185,129,.15); color:#047857; border-color: rgba(16,185,129,.35) }
 
 /* Tabs */
 .tabs { display:flex; gap:8px; margin-bottom:12px; border-bottom:1px solid var(--border) }

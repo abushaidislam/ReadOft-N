@@ -229,6 +229,33 @@ router.post('/:id/approve', authRequired, requireRole(ROLES.ADMIN), async (req, 
   }
 })
 
+// Admin: reject article with reason (moves to draft)
+router.post('/:id/reject', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const id = req.params.id
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : ''
+    const { data: existing, error: findErr } = await supabase
+      .from('articles')
+      .select('id, author_id, title, status')
+      .eq('id', id)
+      .maybeSingle()
+    if (findErr) throw findErr
+    if (!existing) return res.status(404).json({ message: 'Not found' })
+    const { data, error } = await supabase
+      .from('articles')
+      .update({ status: 'draft', updated_at: new Date() })
+      .eq('id', id)
+      .select('*')
+      .single()
+    if (error) throw error
+    try { if (existing.author_id) await notify(existing.author_id, 'article_rejected', { article_id: id, title: existing.title, reason }) } catch (e) { console.error('reject notify error', e) }
+    res.json(data)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to reject' })
+  }
+})
+
 export default router
 // Get by slug
 router.get('/slug/:slug', authOptional, async (req, res) => {

@@ -154,6 +154,12 @@ function NotifText({ n }) {
         Your article approved: <Link to={`/article/${p.article_id}`}>{p.title || 'Article'}</Link>
       </span>
     )
+  if (t === 'article_rejected')
+    return (
+      <span>
+        Your article was rejected{p.reason ? `: ${p.reason}` : ''}
+      </span>
+    )
   if (t === 'new_post_by_followed_author')
     return (
       <span>
