@@ -1,4 +1,5 @@
 import { useLocation, useNavigate, Link } from 'react-router-dom'
+import Button from './Button.jsx'
 
 export default function Subnav() {
   const loc = useLocation()
@@ -28,8 +29,8 @@ export default function Subnav() {
     <div className="subnav">
       <div className="container subnav-inner">
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <button className="btn back-btn" onClick={goBack} aria-label="Go back">← Back</button>
-          <button className="btn" onClick={goForward} aria-label="Go forward">Forward →</button>
+          <Button className="back-btn" onClick={goBack} aria-label="Go back">← Back</Button>
+          <Button onClick={goForward} aria-label="Go forward">Forward →</Button>
         </div>
         <nav className="crumbs" aria-label="Breadcrumb">
           {items.map((it, idx) => (

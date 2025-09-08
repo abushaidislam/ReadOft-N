@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import Button from './Button.jsx'
 
 export default function Footer() {
   const year = new Date().getFullYear()
@@ -41,7 +42,7 @@ export default function Footer() {
       </div>
       <div className="container footer-bottom">
         <span className="muted">© {year} {app}. All rights reserved.</span>
-        <a href="#top" className="btn" onClick={(e)=>{ e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Back to top ↑</a>
+        <Button as="a" href="#top" onClick={(e)=>{ e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Back to top ↑</Button>
       </div>
     </footer>
   )

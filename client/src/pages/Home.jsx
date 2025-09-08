@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import useMeta from '../utils/useMeta.js'
 import { useAuth } from '../state/AuthContext.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
+import Button from '../components/Button.jsx'
 
 export default function Home() {
   const { request } = useAuth()
@@ -154,8 +155,8 @@ export default function Home() {
             <h1 className="hero-title">Read. Write. Discover.</h1>
             <p className="hero-sub">Fresh articles from authors you follow and love.</p>
           <div className="hero-cta">
-            <a className="btn btn-primary" href="#feed">Explore Articles</a>
-            <a className="btn" href="/register">Join Free</a>
+            <Button as="a" variant="primary" href="#feed">Explore Articles</Button>
+            <Button as="a" href="/register">Join Free</Button>
           </div>
             <form ref={heroSearchRef} className="hero-search" onSubmit={onHeroSearch} role="search" aria-label="Search articles">
               <input
@@ -188,7 +189,7 @@ export default function Home() {
                   else if (e.key === 'Escape') { setShowSuggest(false) }
                 }}
               />
-              <button className="btn btn-primary" type="submit">Search</button>
+              <Button variant="primary" type="submit">Search</Button>
               {showSuggest && suggestions.length > 0 && (
                 <div className="suggest">
                   {suggestions.map((s, i) => (
@@ -250,7 +251,7 @@ export default function Home() {
             <option value={c.slug} key={c.id}>{c.name}</option>
           ))}
         </select>
-        <button className="btn" onClick={() => { setPage(1); fetchData(true) }}>Apply</button>
+        <Button onClick={() => { setPage(1); fetchData(true) }}>Apply</Button>
       </div>
       {loading ? (
         <div className="grid" id="feed">
@@ -278,9 +279,9 @@ export default function Home() {
                 <span className="muted">{pageInfo && page >= (pageInfo.totalPages || 1) ? 'No more results' : ''}</span>
               )
             ) : (
-              <button className="btn" disabled={loadingMore || (pageInfo && page >= (pageInfo.totalPages || 1))} onClick={() => setPage((p) => p + 1)}>
+              <Button disabled={loadingMore || (pageInfo && page >= (pageInfo.totalPages || 1))} onClick={() => setPage((p) => p + 1)}>
                 {loadingMore ? 'Loading…' : 'Load more'}
-              </button>
+              </Button>
             )}
           </div>
         </>

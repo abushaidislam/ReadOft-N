@@ -4,6 +4,7 @@ import { useAuth } from '../state/AuthContext.jsx'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
+import Button from '../components/Button.jsx'
 
 export default function Editor() {
   const { request, auth, ui } = useAuth()
@@ -286,23 +287,23 @@ export default function Editor() {
       <form onSubmit={onSubmit} className="form">
         <input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         <div className="editor-toolbar">
-          <button type="button" className="btn" onClick={() => wrapSelection('**','**')}>Bold</button>
-          <button type="button" className="btn" onClick={() => wrapSelection('_','_')}>Italic</button>
-          <button type="button" className="btn" onClick={() => wrapSelection('<u>','</u>')}>Underline</button>
-          <button type="button" className="btn" onClick={insertLink}>Link</button>
-          <button type="button" className="btn" onClick={() => insertLine('# ')}>H1</button>
-          <button type="button" className="btn" onClick={() => insertLine('## ')}>H2</button>
-          <button type="button" className="btn" onClick={() => insertLine('### ')}>H3</button>
-          <button type="button" className="btn" onClick={() => insertLine('> ')}>Quote</button>
-          <button type="button" className="btn" onClick={() => wrapSelection('`','`')}>Code</button>
-          <button type="button" className="btn" onClick={() => insertLine('- ')}>Bulleted</button>
-          <button type="button" className="btn" onClick={() => insertLine('1. ')}>Ordered</button>
-          <button type="button" className="btn" onClick={() => insertLine('- [ ] ')}>Task</button>
-          <button type="button" className="btn" onClick={insertHr}>HR</button>
-          <button type="button" className="btn" onClick={insertCodeBlock}>Code Block</button>
-          <button type="button" className="btn" onClick={clearFormatting}>Clear</button>
+          <Button type="button" onClick={() => wrapSelection('**','**')}>Bold</Button>
+          <Button type="button" onClick={() => wrapSelection('_','_')}>Italic</Button>
+          <Button type="button" onClick={() => wrapSelection('<u>','</u>')}>Underline</Button>
+          <Button type="button" onClick={insertLink}>Link</Button>
+          <Button type="button" onClick={() => insertLine('# ')}>H1</Button>
+          <Button type="button" onClick={() => insertLine('## ')}>H2</Button>
+          <Button type="button" onClick={() => insertLine('### ')}>H3</Button>
+          <Button type="button" onClick={() => insertLine('> ')}>Quote</Button>
+          <Button type="button" onClick={() => wrapSelection('`','`')}>Code</Button>
+          <Button type="button" onClick={() => insertLine('- ')}>Bulleted</Button>
+          <Button type="button" onClick={() => insertLine('1. ')}>Ordered</Button>
+          <Button type="button" onClick={() => insertLine('- [ ] ')}>Task</Button>
+          <Button type="button" onClick={insertHr}>HR</Button>
+          <Button type="button" onClick={insertCodeBlock}>Code Block</Button>
+          <Button type="button" onClick={clearFormatting}>Clear</Button>
           <input id="media-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={handleMediaSelect} />
-          <button type="button" className="btn btn-primary" onClick={() => document.getElementById('media-input').click()}>Add Image</button>
+          <Button type="button" variant="primary" onClick={() => document.getElementById('media-input').click()}>Add Image</Button>
         </div>
         <div>
           <label>Thumbnail image</label>
@@ -361,7 +362,7 @@ export default function Editor() {
         {error && <p className="error">{error}</p>}
         {articleId && (
           <div style={{ display:'flex', gap:'var(--space-sm)', alignItems:'center', margin:'var(--space-sm) 0' }}>
-            <button className="btn" type="button" onClick={async()=>{
+            <Button type="button" onClick={async()=>{
               try {
                 const r = await request(`/articles/${articleId}/preview`, { method:'POST' })
                 const url = r?.url || (r?.token ? `/p/${r.token}` : '')
@@ -370,13 +371,13 @@ export default function Editor() {
                   ui.notify('Preview link copied to clipboard', 'success')
                 }
               } catch {}
-            }}>Get Preview Link</button>
+            }}>Get Preview Link</Button>
             <span className="muted" style={{ fontSize: '.85rem' }}>Share this link to preview your draft without login.</span>
           </div>
         )}
-        <button className={`btn btn-primary ${saving ? 'loading' : ''}`} type="submit" disabled={saving}>
+        <Button variant="primary" type="submit" loading={saving}>
           {saving ? 'Saving…' : (form.status === 'pending' && auth.user?.role !== 'admin' ? 'Submit for review' : 'Save')}
-        </button>
+        </Button>
       </form>
       <aside className="editor-preview">
         <div className="card">
@@ -400,7 +401,7 @@ export default function Editor() {
               {revisions.map((r) => (
                 <li key={r.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                   <span>{new Date(r.created_at).toLocaleString()} — {r.title}</span>
-                  <button className="btn" onClick={async ()=>{ try { const a = await request(`/articles/${articleId}/revisions/${r.id}/restore`, { method:'POST' }); setForm({ ...form, title: a.title, content: a.content }); ui.notify('Revision restored', 'success'); request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{}) } catch{} }}>Restore</button>
+                  <Button onClick={async ()=>{ try { const a = await request(`/articles/${articleId}/revisions/${r.id}/restore`, { method:'POST' }); setForm({ ...form, title: a.title, content: a.content }); ui.notify('Revision restored', 'success'); request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{}) } catch{} }}>Restore</Button>
                 </li>
               ))}
             </ul>

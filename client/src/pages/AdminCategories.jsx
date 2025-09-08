@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
+import Button from '../components/Button.jsx'
 
 export default function AdminCategories() {
   const { request, ui } = useAuth()
@@ -45,7 +46,7 @@ export default function AdminCategories() {
           <input placeholder="Name" value={name} onChange={(e)=>setName(e.target.value)} />
           <input placeholder="Slug (optional)" value={slug} onChange={(e)=>setSlug(e.target.value)} />
           <div style={{display:'flex', justifyContent:'flex-end'}}>
-            <button className="btn btn-primary" onClick={add}>Create</button>
+            <Button variant="primary" onClick={add}>Create</Button>
           </div>
         </div>
       </section>
@@ -60,15 +61,15 @@ export default function AdminCategories() {
                   <td>{c.name}</td>
                   <td>{c.slug}</td>
                   <td>
-                    <button className="btn" onClick={() => {
+                    <Button onClick={() => {
                       const v = prompt('Rename category', c.name)
                       if (v && v !== c.name) update(c.id, { name: v })
-                    }}>Rename</button>
-                    <button className="btn" onClick={() => {
+                    }}>Rename</Button>
+                    <Button onClick={() => {
                       const v = prompt('Update slug', c.slug)
                       if (v && v !== c.slug) update(c.id, { slug: v })
-                    }}>Slug</button>
-                    <button className="btn" onClick={() => remove(c.id)}>Delete</button>
+                    }}>Slug</Button>
+                    <Button onClick={() => remove(c.id)}>Delete</Button>
                   </td>
                 </tr>
               ))}
