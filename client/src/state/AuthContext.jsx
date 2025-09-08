@@ -109,6 +109,39 @@ export function AuthProvider({ children }) {
     return () => stopNotifStream()
   }, [auth.token])
 
+  // Ensure we always have a fresh copy of user/role when a token exists
+  useEffect(() => {
+    if (!auth.token) return
+    // Fetch /me silently and update local role/avatar/name if changed
+    request('/me', { noGlobalLoading: true })
+      .then((me) => {
+        const existing = auth.user || {}
+        if (!existing || existing.role !== me.role || existing.name !== me.name || existing.avatar_url !== me.avatar_url) {
+          setAuth({ token: auth.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
+        }
+      })
+      .catch(() => {})
+    // run only when token changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.token])
+
+  // Refresh user on window focus to capture role changes without logout
+  useEffect(() => {
+    const onFocus = () => {
+      if (!auth.token) return
+      request('/me', { noGlobalLoading: true })
+        .then((me) => {
+          const existing = auth.user || {}
+          if (!existing || existing.role !== me.role || existing.name !== me.name || existing.avatar_url !== me.avatar_url) {
+            setAuth({ token: auth.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
+          }
+        })
+        .catch(() => {})
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [auth.token, auth.user])
+
   const value = useMemo(() => ({
     auth,
     setAuth,

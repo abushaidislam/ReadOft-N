@@ -57,3 +57,50 @@ export async function notifyFollowersOfArticle(author_id, article_id, title) {
     console.error('notifyFollowersOfArticle error', e)
   }
 }
+
+export async function notifyAdmins(type, payload = {}) {
+  try {
+    const { data: admins, error } = await supabase.from('users').select('id').eq('role', 'admin')
+    if (error) { console.error('notifyAdmins fetch error', error); return }
+    const ids = (admins || []).map((u) => u.id).filter(Boolean)
+    if (ids.length === 0) return
+    const now = new Date()
+    const rows = ids.map((uid) => ({ id: randomUUID(), user_id: uid, type, payload, is_read: false, created_at: now }))
+    const { data: inserted, error: insErr } = await supabase
+      .from('notifications')
+      .insert(rows)
+      .select('id, user_id, type, payload, is_read, created_at')
+    if (insErr) { console.error('notifyAdmins insert error', insErr); return }
+    if (Array.isArray(inserted)) {
+      for (const row of inserted) pushOne(row.user_id, row)
+    }
+  } catch (e) {
+    console.error('notifyAdmins error', e)
+  }
+}
+
+export async function notifyAdminsOfPendingArticle(article_id) {
+  try {
+    const { data: art, error } = await supabase
+      .from('articles')
+      .select('id,title,author_id,thumbnail_url')
+      .eq('id', article_id)
+      .single()
+    if (error) throw error
+    const { data: author } = await supabase
+      .from('users')
+      .select('name,avatar_url')
+      .eq('id', art.author_id)
+      .single()
+    await notifyAdmins('pending_article_submitted', {
+      article_id: art.id,
+      title: art.title,
+      author_id: art.author_id,
+      author_name: author?.name || undefined,
+      author_avatar_url: author?.avatar_url || undefined,
+      thumbnail_url: art?.thumbnail_url || undefined,
+    })
+  } catch (e) {
+    console.error('notifyAdminsOfPendingArticle error', e)
+  }
+}

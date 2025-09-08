@@ -76,6 +76,7 @@ export default function Editor() {
         categories: form.categories,
         thumbnail_url,
         thumbnail_path,
+        // authors cannot publish directly; server also enforces
         status: form.status,
         slug: slug,
       }
@@ -126,10 +127,15 @@ export default function Editor() {
           Status:
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
             <option value="draft">Draft</option>
-            <option value="pending">Pending</option>
-            <option value="published">Published</option>
+            <option value="pending">Submit for review</option>
+            {auth.user?.role === 'admin' && <option value="published">Published</option>}
           </select>
         </label>
+        {auth.user?.role !== 'admin' && (
+          <div className="muted" style={{ fontSize: '.85rem' }}>
+            Authors can save drafts or submit for review. An admin will approve and publish.
+          </div>
+        )}
         <label>
           Slug:
           <input placeholder="post-slug" value={slug} onChange={(e)=>{ setSlug(e.target.value); setSlugTouched(true) }} />
@@ -137,7 +143,7 @@ export default function Editor() {
         </label>
         {error && <p className="error">{error}</p>}
         <button className={`btn btn-primary ${saving ? 'loading' : ''}`} type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Saving…' : (form.status === 'pending' && auth.user?.role !== 'admin' ? 'Submit for review' : 'Save')}
         </button>
       </form>
       <div className="card" style={{ marginTop: 16 }}>
@@ -151,3 +157,4 @@ export default function Editor() {
     </div>
   )
 }
+

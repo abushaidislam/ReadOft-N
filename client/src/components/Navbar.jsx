@@ -160,6 +160,12 @@ function NotifText({ n }) {
         New post: <Link to={`/article/${p.article_id}`}>{p.title || 'Article'}</Link>
       </span>
     )
+  if (t === 'pending_article_submitted')
+    return (
+      <span>
+        Review requested: <Link to="/admin">{p.title || 'Article'}</Link> by {p.author_name || 'author'}
+      </span>
+    )
   return <span>Activity update</span>
 }
 

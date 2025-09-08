@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { authOptional, authRequired } from '../middleware/auth.js'
 import { requireRole, ROLES } from '../utils/roles.js'
 import { validateArticle } from '../models/article.js'
-import { notify, notifyFollowersOfArticle } from '../utils/notify.js'
+import { notify, notifyFollowersOfArticle, notifyAdminsOfPendingArticle } from '../utils/notify.js'
 import { slugify, ensureUniqueSlug } from '../utils/slug.js'
 
 const router = express.Router()
@@ -101,7 +101,13 @@ router.post('/', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (re
       title: req.body.title,
       content: req.body.content,
       author_id,
-      status: req.body.status && ['draft', 'pending', 'published'].includes(req.body.status) ? req.body.status : 'pending',
+      // Authors cannot directly publish; only admins may set published
+      status: (() => {
+        const allowed = ['draft', 'pending', 'published']
+        let s = typeof req.body.status === 'string' && allowed.includes(req.body.status) ? req.body.status : 'pending'
+        if (req.user.role !== ROLES.ADMIN && s === 'published') s = 'pending'
+        return s
+      })(),
       tags: Array.isArray(req.body.tags) ? req.body.tags : [],
       categories: Array.isArray(req.body.categories) ? req.body.categories : [],
       thumbnail_url: typeof req.body.thumbnail_url === 'string' ? req.body.thumbnail_url : '',
@@ -118,6 +124,8 @@ router.post('/', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (re
     validateArticle(payload)
     const { data, error } = await supabase.from('articles').insert(payload).select('*').single()
     if (error) throw error
+    // If pending, notify admins of submission
+    try { if (data?.status === 'pending') await notifyAdminsOfPendingArticle(data.id) } catch (e) { console.error('notify admins create pending', e) }
     // If published immediately, notify followers
     try { if (data?.status === 'published') await notifyFollowersOfArticle(author_id, data.id, data.title) } catch (e) { console.error('notify followers create', e) }
     res.status(201).json(data)
@@ -144,8 +152,16 @@ router.put('/:id', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (
       categories: Array.isArray(req.body.categories) ? req.body.categories : existing.categories,
       thumbnail_url: typeof req.body.thumbnail_url === 'string' ? req.body.thumbnail_url : existing.thumbnail_url,
       thumbnail_path: typeof req.body.thumbnail_path === 'string' ? req.body.thumbnail_path : existing.thumbnail_path,
-      status: req.body.status ?? existing.status,
       updated_at: new Date(),
+    }
+    // Validate/adjust status transitions
+    if (typeof req.body.status === 'string') {
+      const allowed = ['draft', 'pending', 'published']
+      let s = allowed.includes(req.body.status) ? req.body.status : existing.status
+      if (req.user.role !== ROLES.ADMIN && s === 'published') s = 'pending'
+      patch.status = s
+    } else {
+      patch.status = existing.status
     }
     if (typeof req.body.slug === 'string' && req.body.slug.trim()) {
       const s = slugify(req.body.slug)
@@ -164,6 +180,8 @@ router.put('/:id', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (
     if (error) throw error
     // If transitioning to published, notify followers
     try { if (existing.status !== 'published' && data?.status === 'published') await notifyFollowersOfArticle(existing.author_id, id, data.title) } catch (e) { console.error('notify followers update', e) }
+    // If transitioning into pending, notify admins
+    try { if (existing.status !== 'pending' && data?.status === 'pending') await notifyAdminsOfPendingArticle(id) } catch (e) { console.error('notify admins pending update', e) }
     res.json(data)
   } catch (e) {
     console.error(e)
