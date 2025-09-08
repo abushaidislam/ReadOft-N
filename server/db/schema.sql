@@ -16,6 +16,8 @@ create table if not exists users (
 
 -- Ensure avatar_path exists on existing databases
 alter table users add column if not exists avatar_path text not null default '';
+-- Banned flag
+alter table users add column if not exists is_banned boolean not null default false;
 
 -- Articles
 create table if not exists articles (

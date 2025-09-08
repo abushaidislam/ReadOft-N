@@ -246,6 +246,15 @@ h1,h2,h3 { margin: 10px 0 }
 .markdown pre { background: #0f1320; padding: .75rem; border-radius: 8px; border: 1px solid var(--border); overflow: auto }
 .markdown pre code { border: 0; padding: 0; background: transparent }
 
+/* Auth pages */
+.auth-wrap { display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:stretch }
+.auth-card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25) }
+.auth-title { margin-top:0; margin-bottom:8px; background: linear-gradient(90deg,#a5b4fc,#34d399); -webkit-background-clip:text; background-clip:text; color:transparent }
+.auth-side { background: #0f1320; border:1px solid var(--border); border-radius:12px; padding:20px }
+.auth-side h3 { margin-top:0 }
+[data-theme='light'] .auth-side { background:#f3f4f6 }
+@media (max-width: 900px) { .auth-wrap { grid-template-columns: 1fr } }
+
 /* Light theme overrides */
 :root[data-theme='light'] { --bg: #f7f7fb; --card: #ffffff; --text: #111827; --muted: #4b5563; --primary: #6366f1; --border: #e5e7eb; --accent: #10b981; }
 [data-theme='light'] .nav { background: rgba(255,255,255,0.8) }

@@ -8,7 +8,7 @@ const router = express.Router()
 // List users (basic info)
 router.get('/users', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
   try {
-    const { data, error } = await supabase.from('users').select('id, email, name, role, created_at').order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('users').select('id, email, name, role, is_banned, created_at').order('created_at', { ascending: false })
     if (error) throw error
     res.json(data)
   } catch (e) {
@@ -28,6 +28,31 @@ router.put('/users/:id/role', authRequired, requireRole(ROLES.ADMIN), async (req
   } catch (e) {
     console.error(e)
     res.status(500).json({ message: 'Failed to update role' })
+  }
+})
+
+// Ban/unban user
+router.put('/users/:id/ban', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const banned = !!req.body?.banned
+    const { data, error } = await supabase.from('users').update({ is_banned: banned }).eq('id', req.params.id).select('id, name, is_banned').single()
+    if (error) throw error
+    res.json(data)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to update ban state' })
+  }
+})
+
+// Delete user (cascades due to foreign keys)
+router.delete('/users/:id', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const { error } = await supabase.from('users').delete().eq('id', req.params.id)
+    if (error) throw error
+    res.json({ success: true })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to delete user' })
   }
 })
 

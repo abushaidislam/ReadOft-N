@@ -98,19 +98,22 @@ export default function Admin() {
       <section className="section-card">
         <h3>Users</h3>
           <table className="table">
-            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
               {users.map((u) => (
                 <tr key={u.id}>
                   <td>{u.name}</td>
                   <td>{u.email}</td>
                   <td>{u.role}</td>
-                  <td>
+                  <td>{u.is_banned ? <span className="badge pending">banned</span> : <span className="badge published">active</span>}</td>
+                  <td style={{display:'flex', gap:8}}>
                     <select value={u.role} onChange={(e) => setRole(u.id, e.target.value)}>
                       <option value="reader">reader</option>
                       <option value="author">author</option>
                       <option value="admin">admin</option>
                     </select>
+                    <button className="btn" onClick={async()=>{ await request(`/admin/users/${u.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: !u.is_banned }) }); load() }}>{u.is_banned?'Unban':'Ban'}</button>
+                    <button className="btn" onClick={async()=>{ if (confirm('Delete user account? This cannot be undone.')) { await request(`/admin/users/${u.id}`, { method:'DELETE' }); load() } }}>Delete</button>
                   </td>
                 </tr>
               ))}

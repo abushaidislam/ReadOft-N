@@ -12,7 +12,7 @@ router.get('/', authRequired, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role, bio, avatar_url, avatar_path, created_at')
+      .select('id, email, name, role, bio, avatar_url, avatar_path, is_banned, created_at')
       .eq('id', req.user.id)
       .single()
     if (error) throw error
@@ -68,4 +68,45 @@ router.put('/password', authRequired, async (req, res) => {
 })
 
 export default router
+// Apply to become author (not a route end; we add below)
 
+// Reader applies to become author: send admin notification
+router.post('/apply-author', authRequired, async (req, res) => {
+  try {
+    // prevent duplicate within 24h
+    const since = new Date(Date.now() - 24*60*60*1000).toISOString()
+    const { data: existing } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('type', 'author_role_request')
+      .eq('payload->>user_id', req.user.id)
+      .gte('created_at', since)
+    if (existing && existing.length > 0) return res.json({ ok: true, queued: true })
+
+    const payload = { user_id: req.user.id, name: req.user.name || '', email: req.user.email || '' }
+    // notify admins
+    const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin')
+    const rows = (admins||[]).map(a => ({ user_id: a.id, type: 'author_role_request', payload, is_read:false, created_at:new Date() }))
+    for (const r of rows) r.id = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2)+Date.now())
+    await supabase.from('notifications').insert(rows)
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to submit application' })
+  }
+})
+
+router.get('/apply-author/status', authRequired, async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from('notifications')
+      .select('id, created_at, is_read')
+      .eq('type', 'author_role_request')
+      .eq('payload->>user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const last = (data||[])[0]
+    res.json({ requestedAt: last?.created_at || null })
+  } catch {
+    res.json({ requestedAt: null })
+  }
+})

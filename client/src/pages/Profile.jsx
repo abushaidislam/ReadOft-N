@@ -17,6 +17,7 @@ export default function Profile() {
   const [pwd, setPwd] = useState({ current: '', next: '' })
   const fileRef = useRef(null)
   const [tab, setTab] = useState('overview')
+  const [applyStatus, setApplyStatus] = useState(null)
 
   useEffect(() => {
     request('/me').then((m)=>{ setMe(m); setName(m.name||''); setBio(m.bio||'') }).catch(console.error)
@@ -27,6 +28,7 @@ export default function Profile() {
     if (auth.user?.role === 'author' || auth.user?.role === 'admin') {
       request('/follows/followers/me').then(setFollowers).catch(()=>{})
     }
+    request('/me/apply-author/status', { noGlobalLoading: true }).then(setApplyStatus).catch(()=>{})
   }, [])
 
   const analytics = useMemo(() => computeAnalytics(reads), [reads])
@@ -75,6 +77,19 @@ export default function Profile() {
             <div className="stat"><div className="value">{reads.length}</div><div className="label">Reads</div></div>
           </div>
         </section>
+
+        {auth.user?.role === 'reader' && (
+          <section className="section-card">
+            <h3 style={{marginTop:0}}>Become an Author</h3>
+            <p className="muted">Submit an application to publish posts. An admin will review your request.</p>
+            <div style={{display:'flex', gap:8}}>
+              <button className="btn btn-primary" onClick={async()=>{
+                try { await request('/me/apply-author', { method: 'POST' }); alert('Application submitted. You will be notified.'); setApplyStatus({ requestedAt: new Date().toISOString() }) } catch{}
+              }}>Apply for author</button>
+              {applyStatus?.requestedAt && <span className="muted">Requested: {new Date(applyStatus.requestedAt).toLocaleString()}</span>}
+            </div>
+          </section>
+        )}
 
         <section className="section-card">
           <h3 style={{marginTop:0}}>Followed authors</h3>
