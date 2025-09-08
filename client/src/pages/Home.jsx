@@ -40,7 +40,7 @@ export default function Home() {
   useEffect(() => { try { localStorage.setItem('heroMuted', String(muted)) } catch {} }, [muted])
 
   return (
-    <div className="container page">
+    <>
       <section className="hero">
         {/* Background video */}
         <video
@@ -63,16 +63,33 @@ export default function Home() {
         >
           {muted ? 'Sound Off' : 'Sound On'}
         </button>
-        <div className="hero-inner">
-          <h1 className="hero-title">Read. Write. Discover.</h1>
-          <p className="hero-sub">Fresh articles from authors you follow and love.</p>
+        <div className="container">
+          <div className="hero-inner">
+            <h1 className="hero-title">Read. Write. Discover.</h1>
+            <p className="hero-sub">Fresh articles from authors you follow and love.</p>
           <div className="hero-cta">
             <a className="btn btn-primary" href="#feed">Explore Articles</a>
             <a className="btn" href="/register">Join Free</a>
           </div>
+            <form className="hero-search" onSubmit={onHeroSearch} role="search" aria-label="Search articles">
+              <input
+                className="hero-input"
+                placeholder="Search for any article..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <button className="btn btn-primary" type="submit">Search</button>
+            </form>
+            <div className="hero-chips">
+              {(categories.slice(0,6) || []).map((c) => (
+                <button key={c.id} className="chip" type="button" onClick={() => { setCategory(c.slug); setPage(1); fetchData() }}>{c.name}</button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="hero-glow" aria-hidden="true" />
       </section>
+      <div className="container page">
       <div className="tabs" style={{ marginTop: 12 }}>
         <button className={`tab ${sort === '-created_at' ? 'active' : ''}`} onClick={() => { setSort('-created_at'); setPage(1) }}>Latest</button>
         <button className={`tab ${sort === '-like_count' ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPage(1) }}>Trending</button>
@@ -118,4 +135,5 @@ export default function Home() {
         </>
       )}
     </div>
+    </>
   )}
