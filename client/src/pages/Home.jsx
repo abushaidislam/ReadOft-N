@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import useMeta from '../utils/useMeta.js'
 import { useAuth } from '../state/AuthContext.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
 
@@ -59,16 +60,25 @@ export default function Home() {
   useEffect(() => { setPage(1); fetchData(true).catch(console.error) }, [sort, period])
   useEffect(() => { request('/categories', { noGlobalLoading: true }).then(setCategories).catch(() => {}) }, [])
   useEffect(() => { try { localStorage.setItem('heroMuted', String(muted)) } catch {} }, [muted])
+  useMeta({ title: `${import.meta.env.VITE_APP_NAME || 'Readoft'} — Read. Write. Discover.`, description: 'Fresh articles from authors you follow and love.', canonical: '/' })
 
-  // live suggestions for hero search
+  // live suggestions for hero search (articles + categories + authors)
   useEffect(() => {
     let t
     if (q && q.trim().length >= 2) {
       t = setTimeout(async () => {
         try {
           const params = new URLSearchParams({ q: q.trim(), page: '1', limit: '5', sort: '-like_count' })
-          const data = await request(`/search?${params.toString()}`, { noGlobalLoading: true })
-          setSuggestions(data.items || [])
+          const [articles, authors] = await Promise.all([
+            request(`/search?${params.toString()}`, { noGlobalLoading: true }).then(r => r.items || []).catch(() => []),
+            request(`/authors/search?q=${encodeURIComponent(q.trim())}&limit=5`, { noGlobalLoading: true }).catch(() => []),
+          ])
+          const cats = (categories || []).filter(c => (c.name || '').toLowerCase().includes(q.trim().toLowerCase()) || (c.slug || '').toLowerCase().includes(q.trim().toLowerCase())).slice(0,5)
+          const combined = []
+          if (articles.length) combined.push({ type:'label', text:'Articles' }, ...articles.map(a => ({ type:'article', item:a })))
+          if (cats.length) combined.push({ type:'label', text:'Categories' }, ...cats.map(c => ({ type:'category', item:c })))
+          if (Array.isArray(authors) && authors.length) combined.push({ type:'label', text:'Authors' }, ...authors.map(u => ({ type:'author', item:u })))
+          setSuggestions(combined)
           setShowSuggest(true)
           setActiveIdx(0)
         } catch { setSuggestions([]); setShowSuggest(false) }
@@ -145,9 +155,26 @@ export default function Home() {
                 onChange={(e) => { setQ(e.target.value); setShowSuggest(true) }}
                 onKeyDown={(e) => {
                   if (!showSuggest || suggestions.length === 0) return
-                  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => Math.min(suggestions.length - 1, i + 1)) }
-                  else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => Math.max(0, i - 1)) }
-                  else if (e.key === 'Enter') { if (activeIdx >= 0) { e.preventDefault(); const s = suggestions[activeIdx]; navigate(s.slug ? `/a/${s.slug}` : `/article/${s.id}`); setShowSuggest(false) } }
+                  const nextIdx = (dir) => {
+                    let i = activeIdx
+                    while (true) {
+                      i = Math.max(0, Math.min(suggestions.length - 1, i + dir))
+                      if (suggestions[i]?.type !== 'label') return i
+                      if (i === 0 || i === suggestions.length - 1) return i
+                    }
+                  }
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => nextIdx(1)) }
+                  else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => nextIdx(-1)) }
+                  else if (e.key === 'Enter') {
+                    if (activeIdx >= 0) {
+                      e.preventDefault()
+                      const s = suggestions[activeIdx]
+                      if (s.type === 'article') navigate(s.item.slug ? `/a/${s.item.slug}` : `/article/${s.item.id}`)
+                      else if (s.type === 'category') { setCategory(s.item.slug); setShowSuggest(false); setPage(1); fetchData(true) }
+                      else if (s.type === 'author') navigate(`/author/${s.item.id}`)
+                      setShowSuggest(false)
+                    }
+                  }
                   else if (e.key === 'Escape') { setShowSuggest(false) }
                 }}
               />
@@ -155,15 +182,24 @@ export default function Home() {
               {showSuggest && suggestions.length > 0 && (
                 <div className="suggest">
                   {suggestions.map((s, i) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className={`suggest-item ${i === activeIdx ? 'active' : ''}`}
-                      onClick={() => navigate(s.slug ? `/a/${s.slug}` : `/article/${s.id}`)}
-                    >
-                      <span className="title">{s.title}</span>
-                      <span className="meta">{new Date(s.created_at).toLocaleDateString()}</span>
-                    </button>
+                    s.type === 'label' ? (
+                      <div key={`lbl-${i}`} className="suggest-label">{s.text}</div>
+                    ) : s.type === 'article' ? (
+                      <button key={s.item.id} type="button" className={`suggest-item ${i === activeIdx ? 'active' : ''}`} onClick={() => navigate(s.item.slug ? `/a/${s.item.slug}` : `/article/${s.item.id}`)}>
+                        <span className="title">{s.item.title}</span>
+                        <span className="meta">{new Date(s.item.created_at).toLocaleDateString()}</span>
+                      </button>
+                    ) : s.type === 'category' ? (
+                      <button key={s.item.id} type="button" className={`suggest-item ${i === activeIdx ? 'active' : ''}`} onClick={() => { setCategory(s.item.slug); setShowSuggest(false); setPage(1); fetchData(true) }}>
+                        <span className="title">#{s.item.name}</span>
+                        <span className="meta">Category</span>
+                      </button>
+                    ) : (
+                      <button key={s.item.id} type="button" className={`suggest-item ${i === activeIdx ? 'active' : ''}`} onClick={() => navigate(`/author/${s.item.id}`)}>
+                        <span className="title">{s.item.name}</span>
+                        <span className="meta">Author</span>
+                      </button>
+                    )
                   ))}
                 </div>
               )}
@@ -172,6 +208,17 @@ export default function Home() {
               {(categories.slice(0,6) || []).map((c) => (
                 <button key={c.id} className="chip" type="button" onClick={() => { setCategory(c.slug); setPage(1); fetchData(true) }}>{c.name}</button>
               ))}
+            </div>
+            <div className="trusted-by">
+              <span className="muted">Trusted by:</span>
+              <ul className="trusted-list">
+                <li>Meta</li>
+                <li>Google</li>
+                <li>Netflix</li>
+                <li>P&amp;G</li>
+                <li>PayPal</li>
+                <li>Payoneer</li>
+              </ul>
             </div>
           </div>
         </div>

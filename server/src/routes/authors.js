@@ -3,6 +3,27 @@ import { supabase } from '../supabase.js'
 
 const router = express.Router()
 
+// Search authors by name (public)
+router.get('/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim()
+    const limit = Math.min(20, Math.max(1, parseInt(req.query.limit) || 5))
+    if (!q) return res.json([])
+    let query = supabase
+      .from('users')
+      .select('id,name,avatar_url,role', { count: 'exact' })
+      .ilike('name', `%${q}%`)
+      .order('name', { ascending: true })
+      .limit(limit)
+    const { data, error } = await query
+    if (error) throw error
+    res.json(data || [])
+  } catch (e) {
+    console.error('authors search error:', e)
+    res.status(500).json({ message: 'Failed to search authors' })
+  }
+})
+
 // Basic author profile
 router.get('/:id', async (req, res) => {
   try {
@@ -66,4 +87,3 @@ router.get('/:id/summary', async (req, res) => {
 })
 
 export default router
-

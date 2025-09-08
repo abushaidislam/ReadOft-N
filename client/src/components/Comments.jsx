@@ -101,7 +101,7 @@ function CommentItem({ c, childMap, me, onReply, onDeleteSuccess }) {
     <div className="comment">
       <div className="comment-head">
         {c.user?.avatar_url ? (
-          <img src={c.user.avatar_url} alt="avatar" className="avatar" />
+          <img src={c.user.avatar_url} alt="avatar" className="avatar" loading="lazy" decoding="async" />
         ) : (
           <span className="avatar avatar-fallback">{(c.user?.name || 'U').slice(0, 1).toUpperCase()}</span>
         )}
@@ -151,4 +151,3 @@ function buildTree(list) {
   }
   return { top, children }
 }
-

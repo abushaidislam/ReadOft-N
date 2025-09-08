@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import useMeta from '../utils/useMeta.js'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
@@ -8,7 +9,7 @@ import Comments from '../components/Comments.jsx'
 
 export default function Article() {
   const { id, slug } = useParams()
-  const { request } = useAuth()
+  const { request, ui } = useAuth()
   const [article, setArticle] = useState(null)
   const [error, setError] = useState('')
   const [liked, setLiked] = useState(false)
@@ -67,6 +68,14 @@ export default function Article() {
     return Math.max(1, Math.ceil(words / 200))
   }, [article?.content])
 
+  const excerpt = useMemo(() => (article?.content || '').replace(/[#*_>`]/g, '').slice(0, 160), [article?.content])
+  useMeta({
+    title: article ? `${article.title} — ${import.meta.env.VITE_APP_NAME || 'Readoft'}` : `${import.meta.env.VITE_APP_NAME || 'Readoft'}`,
+    description: excerpt,
+    image: article?.thumbnail_url || undefined,
+    canonical: article ? (article.slug ? `/a/${article.slug}` : `/article/${article.id}`) : undefined,
+  })
+
   if (error) return <div className="container page"><p className="error">{error}</p></div>
   if (!article) return <div className="container page"><p>Loading...</p></div>
 
@@ -99,6 +108,18 @@ export default function Article() {
     try {
       const link = article.slug ? `${location.origin}/a/${article.slug}` : `${location.origin}/article/${article.id}`
       await navigator.clipboard.writeText(link)
+      ui?.notify?.('Link copied', 'success')
+    } catch {}
+  }
+  const share = async () => {
+    try {
+      const link = article.slug ? `${location.origin}/a/${article.slug}` : `${location.origin}/article/${article.id}`
+      if (navigator.share) {
+        await navigator.share({ title: article.title, text: `${article.title} — ${readingMinutes} min read`, url: link })
+      } else {
+        await navigator.clipboard.writeText(link)
+        ui?.notify?.('Link copied', 'success')
+      }
     } catch {}
   }
 
@@ -106,7 +127,7 @@ export default function Article() {
     <div className="container page">
       <div className="read-progress" style={{ width: `${progress}%` }} aria-hidden="true" />
       {article.thumbnail_url && (
-        <img src={article.thumbnail_url} alt="thumbnail" className="hero-thumb" />
+        <img src={article.thumbnail_url} alt="thumbnail" className="hero-thumb" loading="lazy" decoding="async" />
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
@@ -120,6 +141,7 @@ export default function Article() {
         <button className="btn btn-primary" onClick={like} disabled={liked}>{liked ? 'Liked' : 'Like'}</button>
         <button className="btn" onClick={follow}>Follow Author</button>
         <button className="btn" onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</button>
+        <button className="btn" onClick={share}>Share</button>
         <button className="btn" onClick={copyLink}>Copy Link</button>
       </div>
       <div className="markdown">
@@ -131,4 +153,3 @@ export default function Article() {
     </div>
   )
 }
-

@@ -58,7 +58,7 @@ export default function ArticleCard({ article, index = 0 }) {
   return (
     <article className="card card-animated" style={{ animationDelay: `${(index % 12) * 30}ms` }}>
       {article.thumbnail_url ? (
-        <img src={article.thumbnail_url} alt="thumbnail" className="thumb" />
+        <img src={article.thumbnail_url} alt="thumbnail" className="thumb" loading="lazy" decoding="async" />
       ) : null}
       <h3 className="card-title">
         <Link to={article.slug ? `/a/${article.slug}` : `/article/${article.id}`}>{article.title}</Link>
