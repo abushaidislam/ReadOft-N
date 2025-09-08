@@ -17,6 +17,14 @@ export default function Home() {
     try { return localStorage.getItem('heroMuted') !== 'false' } catch { return true }
   })
   const heroVideoRef = useRef(null)
+  const onHeroSearch = (e) => {
+    e.preventDefault()
+    setPage(1)
+    fetchData().then(() => {
+      const el = document.getElementById('feed')
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }).catch(()=>{})
+  }
 
   const fetchData = async () => {
     setLoading(true)
