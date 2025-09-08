@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import Comments from '../components/Comments.jsx'
+import ArticleCard from '../components/ArticleCard.jsx'
 
 export default function Article() {
   const { id, slug } = useParams()
@@ -15,6 +16,7 @@ export default function Article() {
   const [liked, setLiked] = useState(false)
   const [saved, setSaved] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [related, setRelated] = useState([])
 
   useEffect(() => {
     const path = slug ? `/articles/slug/${slug}` : `/articles/${id}`
@@ -24,6 +26,7 @@ export default function Article() {
         const aid = a.id
         request(`/likes/status/${aid}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {})
         request(`/bookmarks/status/${aid}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {})
+        request(`/articles/${aid}/related`, { noGlobalLoading: true }).then(setRelated).catch(() => {})
       })
       .catch((e) => setError(e.message))
   }, [id, slug])
@@ -162,6 +165,16 @@ export default function Article() {
         </ReactMarkdown>
       </div>
       <Comments articleId={article.id} />
+      {related.length > 0 && (
+        <section style={{ marginTop: 24 }}>
+          <h3 style={{ marginTop: 0 }}>You might also like</h3>
+          <div className="grid">
+            {related.map((a, idx) => (
+              <ArticleCard key={a.id} article={a} index={idx} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

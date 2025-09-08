@@ -324,3 +324,55 @@ router.post('/:id/revisions/:revId/restore', authRequired, requireRole(ROLES.AUT
     res.status(500).json({ message: 'Failed to restore revision' })
   }
 })
+
+// Related/suggested articles
+router.get('/:id/related', authOptional, async (req, res) => {
+  try {
+    const id = req.params.id
+    // fetch base article to get categories/tags
+    const { data: base, error: bErr } = await supabase
+      .from('articles')
+      .select('id,categories,tags,author_id,status')
+      .eq('id', id)
+      .maybeSingle()
+    if (bErr) throw bErr
+    if (!base) return res.status(404).json({ message: 'Not found' })
+    const select = 'id,slug,title,thumbnail_url,like_count,created_at,author:users!articles_author_id_fkey(id,name,avatar_url)'
+    const related = new Map()
+    // by categories
+    const cats = Array.isArray(base.categories) ? base.categories : []
+    for (const c of cats.slice(0, 3)) {
+      const { data } = await supabase
+        .from('articles')
+        .select(select)
+        .eq('status', 'published')
+        .contains('categories', [c])
+        .neq('id', id)
+        .order('like_count', { ascending: false })
+        .limit(6)
+      for (const a of data || []) related.set(a.id, a)
+      if (related.size >= 6) break
+    }
+    // by tags if still need
+    const tags = Array.isArray(base.tags) ? base.tags : []
+    if (related.size < 6) {
+      for (const t of tags.slice(0, 5)) {
+        const { data } = await supabase
+          .from('articles')
+          .select(select)
+          .eq('status', 'published')
+          .contains('tags', [t])
+          .neq('id', id)
+          .order('created_at', { ascending: false })
+          .limit(6)
+        for (const a of data || []) related.set(a.id, a)
+        if (related.size >= 6) break
+      }
+    }
+    const items = Array.from(related.values()).slice(0, 6)
+    res.json(items)
+  } catch (e) {
+    console.error('related error', e)
+    res.status(500).json({ message: 'Failed to load related' })
+  }
+})
