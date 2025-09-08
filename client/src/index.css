@@ -9,7 +9,8 @@ a { color: var(--text); text-decoration: none }
 .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 }
 .nav-left { display:flex; align-items:center; gap:8px }
 .back-btn { padding:6px 10px }
-.brand { font-weight: 700; letter-spacing: 0.4px }
+.brand { font-weight: 700; letter-spacing: 0.4px; display:inline-flex; align-items:center; gap:8px }
+.brand-logo { height:28px; width:auto; display:block; filter: brightness(0) invert(1) }
 .links a { position:relative; margin-right: 16px; color: var(--muted); padding-bottom: 4px }
 .links a::after { content:''; position:absolute; left:0; right:0; bottom:0; height:2px; background: linear-gradient(90deg, var(--primary), var(--accent)); transform: scaleX(0); transform-origin: left; transition: transform .25s ease }
 .links a:hover::after { transform: scaleX(1) }
@@ -173,6 +174,16 @@ h1,h2,h3 { margin: 10px 0 }
 .toast.success { border-color: rgba(16,185,129,.5) }
 .toast.error { border-color: rgba(239,68,68,.5) }
 .toast.info { border-color: rgba(99,102,241,.5) }
+
+/* Footer */
+.footer { margin-top: 40px; border-top: 1px solid var(--border); background: #0f1320 }
+.footer-inner { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; padding: 24px 0 }
+.foot-col strong { display:block; margin-bottom:8px }
+.foot-links { display:flex; flex-direction:column; gap:6px }
+.foot-links a { color:#cbd5e1 }
+.footer-bottom { display:flex; align-items:center; justify-content:space-between; padding: 12px 0 24px }
+.foot-brand { display:inline-flex; align-items:center; gap:8px }
+.brand-col { max-width: 420px }
 
 /* Profile page */
 .profile-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px }

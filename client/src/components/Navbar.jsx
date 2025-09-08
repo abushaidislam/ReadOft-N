@@ -25,7 +25,9 @@ export default function Navbar() {
     <header className="nav">
       <div className="container nav-inner">
         <div className="nav-left">
-          <Link to="/" className="brand">{import.meta.env.VITE_APP_NAME || 'Readoft'}</Link>
+          <Link to="/" className="brand" aria-label="Home">
+            <img src="/logo.png" alt={import.meta.env.VITE_APP_NAME || 'Readoft'} className="brand-logo" />
+          </Link>
         </div>
         <button className="mobile-toggle" aria-label="Toggle menu" onClick={() => setOpen((v) => !v)}>
           <span className={open ? 'bar rotate-45' : 'bar'}></span>
@@ -172,4 +174,3 @@ function NotifItem({ n, onRead }) {
     </div>
   )
 }
-
