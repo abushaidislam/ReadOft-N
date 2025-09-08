@@ -47,7 +47,7 @@ export default function Profile() {
           <div className="profile-header">
             <img className="avatar-lg" src={me?.avatar_url || 'https://placehold.co/96x96?text=Avatar'} alt="avatar" />
             <div className="ph-text">
-              <h2 style={{margin:'0 0 4px'}}>
+              <h2 style={{margin:'0 0 var(--space-xs)'}}>
                 {me?.name}
                 {me?.role && <span className="badge" style={{marginLeft:8, textTransform:'capitalize'}}>{me.role}</span>}
               </h2>
@@ -140,7 +140,7 @@ export default function Profile() {
           </div>
           {analytics.top.length > 0 && (
             <div style={{marginTop:12}}>
-              <h4 style={{margin:'8px 0'}}>Top articles</h4>
+              <h4 style={{margin:'var(--space-sm) 0'}}>Top articles</h4>
               <ul className="media-list">
                 {analytics.top.map((t) => (
                   <li className="media-item" key={t.id}>

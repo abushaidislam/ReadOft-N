@@ -210,7 +210,7 @@ export default function Article() {
           } catch {}
         }}>Report</button>
       </div>
-      <div className="markdown-layout" style={{ display: 'grid', gridTemplateColumns: toc.length ? 'minmax(0,1fr) 280px' : '1fr', gap: 24 }}>
+      <div className="markdown-layout" style={{ display: 'grid', gridTemplateColumns: toc.length ? 'minmax(0,1fr) 280px' : '1fr', gap: 'var(--space-lg)' }}>
         <div className="markdown">
           <ReactMarkdown remarkPlugins={[remarkGfm, remarkSlug]} rehypePlugins={[[rehypeSanitize, mdSchema], rehypeHighlight]}>
           {article.content || ''}
@@ -223,7 +223,7 @@ export default function Article() {
               <nav aria-label="Table of contents">
                 <ul style={{ listStyle:'none', padding:0, margin:0 }}>
                   {toc.map((h) => (
-                    <li key={h.id} style={{ margin: '6px 0', paddingLeft: h.level === 3 ? 12 : 0 }}>
+                    <li key={h.id} style={{ margin: 'var(--space-6) 0', paddingLeft: h.level === 3 ? 'var(--space-12)' : 0 }}>
                       <a href={`#${h.id}`}>{h.text}</a>
                     </li>
                   ))}

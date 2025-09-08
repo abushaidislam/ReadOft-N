@@ -267,7 +267,7 @@ export default function Admin() {
             <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
           <button className={`admin-link ${tab==='applications'?'active':''}`} onClick={()=>setTab('applications')}>Applications {apps.length?`(${apps.length})`:''}</button>
           <button className={`admin-link ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')}>Reports {reports.filter(r=>r.status==='open').length?`(${reports.filter(r=>r.status==='open').length})`:''}</button>
-            <div className="muted" style={{ margin:'12px 4px 4px', fontSize:'.85rem' }}>Quick links</div>
+            <div className="muted" style={{ margin:'var(--space-12) var(--space-xs) var(--space-xs)', fontSize:'.85rem' }}>Quick links</div>
             <Link className="admin-link" to="/editor">New Post</Link>
             <Link className="admin-link" to="/dashboard">Author Dashboard</Link>
             <Link className="admin-link" to="/profile">Profile</Link>
