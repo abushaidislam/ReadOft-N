@@ -35,7 +35,7 @@ export default function Home() {
     fetchData(true).then(() => {
       const el = document.getElementById('feed')
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }).catch(()=>{})
+    }).catch(() => { /* ignore */ })
   }
 
   const fetchData = async (reset = false) => {
@@ -59,7 +59,7 @@ export default function Home() {
 
   useEffect(() => { fetchData(page === 1).catch(console.error) }, [page])
   useEffect(() => { setPage(1); fetchData(true).catch(console.error) }, [sort, period])
-  useEffect(() => { request('/categories', { noGlobalLoading: true }).then(setCategories).catch(() => {}) }, [])
+  useEffect(() => { request('/categories', { noGlobalLoading: true }).then(setCategories).catch(() => { /* ignore */ }) }, [])
   useEffect(() => { try { localStorage.setItem('heroMuted', String(muted)) } catch {} }, [muted])
   useMeta({ title: `${import.meta.env.VITE_APP_NAME || 'Readoft'} — Read. Write. Discover.`, description: 'Fresh articles from authors you follow and love.', canonical: '/' })
 
@@ -174,8 +174,8 @@ export default function Home() {
                       if (i === 0 || i === suggestions.length - 1) return i
                     }
                   }
-                  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => nextIdx(1)) }
-                  else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => nextIdx(-1)) }
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(nextIdx(1)) }
+                  else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx(nextIdx(-1)) }
                   else if (e.key === 'Enter') {
                     if (activeIdx >= 0) {
                       e.preventDefault()

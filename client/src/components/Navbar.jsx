@@ -19,8 +19,8 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!auth.user) return
-    ui.loadNotifications().catch(() => {})
-    const t = setInterval(() => ui.loadNotifications().catch(() => {}), 20000)
+    ui.loadNotifications().catch(() => { /* ignore */ })
+    const t = setInterval(() => ui.loadNotifications().catch(() => { /* ignore */ }), 20000)
     return () => clearInterval(t)
   }, [auth.user])
 

@@ -48,8 +48,8 @@ export default function Author() {
     try { await request(`/follows/${id}`, { method: 'DELETE' }); setFollowed(false); loadSummary() } catch {}
   }
 
-  useEffect(() => { setPage(1); loadSummary().catch(()=>{}); loadArticles().catch(()=>{}); checkFollow().catch(()=>{}) }, [id])
-  useEffect(() => { loadArticles().catch(()=>{}) }, [page])
+  useEffect(() => { setPage(1); loadSummary().catch(() => { /* ignore */ }); loadArticles().catch(() => { /* ignore */ }); checkFollow().catch(() => { /* ignore */ }) }, [id])
+  useEffect(() => { loadArticles().catch(() => { /* ignore */ }) }, [page])
 
   if (error) return <div className="container page"><p className="error">{error}</p></div>
 

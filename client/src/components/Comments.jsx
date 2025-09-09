@@ -15,14 +15,14 @@ export default function Comments({ articleId }) {
     try {
       const data = await request(`/articles/${articleId}/comments`, { noGlobalLoading: true })
       setItems(Array.isArray(data) ? data : [])
-    } catch (e) {
+    } catch {
       ui.notify('Failed to load comments', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { load().catch(() => {}) }, [articleId])
+  useEffect(() => { load().catch(() => { /* ignore */ }) }, [articleId])
 
   const tree = useMemo(() => buildTree(items), [items])
 
@@ -36,7 +36,7 @@ export default function Comments({ articleId }) {
       if (clear) clear('')
       else setContent('')
       ui.notify('Comment posted', 'success')
-    } catch (e) {
+    } catch {
       // error toast already shown globally
     } finally {
       if (!parent_id) setPosting(false)
@@ -92,7 +92,7 @@ function CommentItem({ c, childMap, me, onReply, onDeleteSuccess }) {
       await request(`/comments/${c.id}`, { method: 'DELETE' })
       ui.notify('Comment deleted', 'success')
       onDeleteSuccess()
-    } catch (e) {
+    } catch {
     } finally {
       setBusy(false)
     }
