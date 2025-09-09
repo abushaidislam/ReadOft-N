@@ -127,7 +127,7 @@ h1,h2,h3 { margin: 10px 0 }
 .hero-thumb { width:100%; height:360px; object-fit:cover; border-radius:12px; margin-bottom:16px; border:1px solid var(--border) }
 
 /* Hero */
-.hero { position:relative; padding: 80px 0 56px; overflow:hidden; min-height: clamp(520px, 80vh, 980px); }
+.hero { position:relative; display:flex; align-items:center; padding:0; overflow:hidden; min-height: clamp(520px, 80vh, 980px); }
 .hero::before {
   content:'';
   position:absolute;
