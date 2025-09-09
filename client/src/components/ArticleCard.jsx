@@ -26,9 +26,9 @@ export default function ArticleCard({ article, index = 0 }) {
         if (bs.status === 'fulfilled') setSaved(Boolean(bs.value?.saved))
       } catch {}
     }
-    fetchStatus().catch(() => {})
+    fetchStatus().catch(() => { /* ignore */ })
     return () => { mounted = false }
-  }, [article.id, auth.user])
+  }, [article.id, auth.user, request])
 
   const like = async () => {
     if (busy || liked) return

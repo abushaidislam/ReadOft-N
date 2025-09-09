@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import styles from './Button.module.css'
 
 export default function Button({
-  as: Component = 'button',
+  as = 'button',
   variant = 'secondary',
   size = 'md',
   loading = false,
@@ -10,6 +10,7 @@ export default function Button({
   disabled,
   ...props
 }) {
+  const Component = as
   return (
     <Component
       className={clsx(

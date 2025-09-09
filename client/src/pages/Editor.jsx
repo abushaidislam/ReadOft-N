@@ -44,14 +44,14 @@ export default function Editor() {
       thumbnail_url: a.thumbnail_url || '',
       thumbnail_path: a.thumbnail_path || '',
     }); setSlug(a.slug || slugify(a.title)) }).catch(console.error)
-  }, [id])
+    }, [id])
 
-  useEffect(() => { request('/categories').then(setAllCategories).catch(() => {}) }, [])
+    useEffect(() => { request('/categories').then(setAllCategories).catch(() => { /* ignore */ }) }, [])
   // auto-generate slug when title changes unless user edited slug
   useEffect(() => { if (!slugTouched) setSlug(slugify(form.title)) }, [form.title])
 
   // load revisions when article id available
-  useEffect(() => { if (articleId) request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{}) }, [articleId])
+    useEffect(() => { if (articleId) request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(() => { /* ignore */ }) }, [articleId])
 
   // autosave draft every 10s when editing
   useEffect(() => {
@@ -76,8 +76,8 @@ export default function Editor() {
           nav(`/editor/${created.id}`, { replace: true })
         } else {
           await request(`/articles/${articleId}`, { method:'PUT', body: JSON.stringify({ ...payload, status: form.status }) })
-          setSavingNote('Autosaved')
-          request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{})
+            setSavingNote('Autosaved')
+            request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(() => { /* ignore */ })
         }
       } catch {}
     }, 10000)
@@ -131,13 +131,13 @@ export default function Editor() {
   }
 
   function wrapSelection(left, right) {
-    const ta = editorRef.current
-    if (!ta) return
-    const start = ta.selectionStart || 0
-    const end = ta.selectionEnd || 0
-    const before = form.content.slice(0, start)
-    const sel = form.content.slice(start, end)
-    const after = form.content.slice(end)
+      const ta = editorRef.current
+      if (!ta) return
+      const start = ta.selectionStart || 0
+      const end = ta.selectionEnd || 0
+      const before = form.content.slice(0, start)
+      const sel = form.content.slice(start, end)
+      const after = form.content.slice(end)
     const next = `${before}${left}${sel || 'text'}${right}${after}`
     setForm({ ...form, content: next })
     setTimeout(() => { ta.focus(); ta.selectionStart = start + left.length; ta.selectionEnd = start + left.length + (sel || 'text').length }, 0)
@@ -145,10 +145,9 @@ export default function Editor() {
   function insertLine(prefix) {
     const ta = editorRef.current
     if (!ta) return
-    const start = ta.selectionStart || 0
-    const end = ta.selectionEnd || 0
-    const content = form.content
-    const lineStart = content.lastIndexOf('\n', start - 1) + 1
+      const start = ta.selectionStart || 0
+      const content = form.content
+      const lineStart = content.lastIndexOf('\n', start - 1) + 1
     const next = content.slice(0, lineStart) + prefix + content.slice(lineStart)
     setForm({ ...form, content: next })
     setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = start + prefix.length }, 0)
@@ -237,7 +236,7 @@ export default function Editor() {
     const before = form.content.slice(0, start)
     const sel = form.content.slice(start, end)
     const after = form.content.slice(end)
-    const cleaned = sel.replace(/[\*\_\~\`]+/g, '').replace(/<\/?u>/g,'')
+      const cleaned = sel.replace(/[*_~`]+/g, '').replace(/<\/?u>/g, '')
     setForm({ ...form, content: before + cleaned + after })
     setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = start; ta.selectionEnd = start + cleaned.length } }, 0)
   }
@@ -401,7 +400,7 @@ export default function Editor() {
               {revisions.map((r) => (
                 <li key={r.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                   <span>{new Date(r.created_at).toLocaleString()} — {r.title}</span>
-                  <Button onClick={async ()=>{ try { const a = await request(`/articles/${articleId}/revisions/${r.id}/restore`, { method:'POST' }); setForm({ ...form, title: a.title, content: a.content }); ui.notify('Revision restored', 'success'); request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{}) } catch{} }}>Restore</Button>
+                    <Button onClick={async ()=>{ try { const a = await request(`/articles/${articleId}/revisions/${r.id}/restore`, { method:'POST' }); setForm({ ...form, title: a.title, content: a.content }); ui.notify('Revision restored', 'success'); request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(() => { /* ignore */ }) } catch{} }}>Restore</Button>
                 </li>
               ))}
             </ul>

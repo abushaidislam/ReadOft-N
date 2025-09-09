@@ -16,7 +16,7 @@ export default function AdminCategories() {
     try { setCategories(await request('/categories')) } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
 
-  useEffect(() => { load().catch(()=>{}) }, [])
+  useEffect(() => { load().catch(() => { /* ignore */ }) }, [])
 
   const add = async () => {
     if (!name.trim()) return

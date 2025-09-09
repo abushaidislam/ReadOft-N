@@ -24,12 +24,12 @@ export default function Profile() {
     request('/me').then((m)=>{ setMe(m); setName(m.name||''); setBio(m.bio||'') }).catch(console.error)
     request('/follows/me').then(setFollows).catch(console.error)
     request('/likes/me').then(setLikes).catch(console.error)
-    request('/bookmarks/me').then(setBookmarks).catch(()=>{})
-    request('/reads/me').then(setReads).catch(()=>{})
+    request('/bookmarks/me').then(setBookmarks).catch(() => { /* ignore */ })
+    request('/reads/me').then(setReads).catch(() => { /* ignore */ })
     if (auth.user?.role === 'author' || auth.user?.role === 'admin') {
-      request('/follows/followers/me').then(setFollowers).catch(()=>{})
+      request('/follows/followers/me').then(setFollowers).catch(() => { /* ignore */ })
     }
-    request('/me/apply-author/status', { noGlobalLoading: true }).then(setApplyStatus).catch(()=>{})
+    request('/me/apply-author/status', { noGlobalLoading: true }).then(setApplyStatus).catch(() => { /* ignore */ })
   }, [])
 
   const analytics = useMemo(() => computeAnalytics(reads), [reads])

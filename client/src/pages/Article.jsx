@@ -29,8 +29,8 @@ export default function Article() {
       .then((a) => {
         setArticle(a)
         const aid = a.id
-        request(`/likes/status/${aid}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {})
-        request(`/bookmarks/status/${aid}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {})
+        request(`/likes/status/${aid}`).then((r) => setLiked(Boolean(r.liked))).catch(() => { /* ignore */ })
+        request(`/bookmarks/status/${aid}`).then((r) => setSaved(Boolean(r.saved))).catch(() => { /* ignore */ })
         setRelatedLoading(true)
         request(`/articles/${aid}/related`, { noGlobalLoading: true })
           .then((r) => setRelated(Array.isArray(r) ? r : []))
@@ -45,7 +45,7 @@ export default function Article() {
     return () => {
       const secs = Math.round((Date.now() - start) / 1000)
       if (secs > 0) {
-        request('/reads', { method: 'POST', body: JSON.stringify({ article_id: id, duration_seconds: secs }) }).catch(() => {})
+        request('/reads', { method: 'POST', body: JSON.stringify({ article_id: id, duration_seconds: secs }) }).catch(() => { /* ignore */ })
       }
     }
   }, [id])

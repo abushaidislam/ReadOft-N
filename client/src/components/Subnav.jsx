@@ -49,7 +49,7 @@ export default function Subnav() {
   )
 }
 
-function labelFor(base, next) {
+function labelFor(base, _next) {
   if (base === 'a' || base === 'article') return 'Article'
   if (base === 'category') return 'Category'
   if (base === 'author') return 'Author'

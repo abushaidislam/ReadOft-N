@@ -120,7 +120,7 @@ export function AuthProvider({ children }) {
           setAuth({ token: auth.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
         }
       })
-      .catch(() => {})
+      .catch(() => { /* ignore */ })
     // run only when token changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.token])
@@ -136,7 +136,7 @@ export function AuthProvider({ children }) {
             setAuth({ token: auth.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
           }
         })
-        .catch(() => {})
+        .catch(() => { /* ignore */ })
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
