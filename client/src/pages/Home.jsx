@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Search, ArrowRight } from 'lucide-react'
 import useMeta from '../utils/useMeta.js'
 import { useAuth } from '../state/AuthContext.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
@@ -28,6 +29,7 @@ export default function Home() {
   const [showSuggest, setShowSuggest] = useState(false)
   const [activeIdx, setActiveIdx] = useState(-1)
   const [supportsIO] = useState(() => typeof window !== 'undefined' && 'IntersectionObserver' in window)
+  const trending = ['website development', 'architecture & interior design', 'UGC videos', 'video editing', 'vibe coding']
   const onHeroSearch = (e) => {
     e.preventDefault()
     setPage(1)
@@ -60,7 +62,7 @@ export default function Home() {
   useEffect(() => { setPage(1); fetchData(true).catch(console.error) }, [sort, period])
   useEffect(() => { request('/categories', { noGlobalLoading: true }).then(setCategories).catch(() => {}) }, [])
   useEffect(() => { try { localStorage.setItem('heroMuted', String(muted)) } catch {} }, [muted])
-  useMeta({ title: `${import.meta.env.VITE_APP_NAME || 'Readoft'} — Read. Write. Discover.`, description: 'Fresh articles from authors you follow and love.', canonical: '/' })
+  useMeta({ title: `${import.meta.env.VITE_APP_NAME || 'Readoft'} — Our freelancers will take it from here`, description: 'Find the perfect service for your project.', canonical: '/' })
 
   // live suggestions for hero search (articles + categories + authors)
   useEffect(() => {
@@ -151,16 +153,12 @@ export default function Home() {
         </button>
         <div className="container">
           <div className="hero-inner">
-            <h1 className="hero-title">Read. Write. Discover.</h1>
-            <p className="hero-sub">Fresh articles from authors you follow and love.</p>
-          <div className="hero-cta">
-            <a className="btn btn-primary" href="#feed">Explore Articles</a>
-            <a className="btn" href="/register">Join Free</a>
-          </div>
-            <form ref={heroSearchRef} className="hero-search" onSubmit={onHeroSearch} role="search" aria-label="Search articles">
+            <h1 className="hero-title">Our freelancers will take it from here</h1>
+            <form ref={heroSearchRef} className="hero-search" onSubmit={onHeroSearch} role="search" aria-label="Search services">
+              <Search className="hero-search-icon" aria-hidden="true" />
               <input
                 className="hero-input"
-                placeholder="Search for any article..."
+                placeholder="Search for any service..."
                 value={q}
                 onChange={(e) => { setQ(e.target.value); setShowSuggest(true) }}
                 onKeyDown={(e) => {
@@ -188,7 +186,9 @@ export default function Home() {
                   else if (e.key === 'Escape') { setShowSuggest(false) }
                 }}
               />
-              <button className="btn btn-primary" type="submit">Search</button>
+              <button className="hero-search-btn" type="submit" aria-label="Search">
+                <ArrowRight size={20} />
+              </button>
               {showSuggest && suggestions.length > 0 && (
                 <div className="suggest">
                   {suggestions.map((s, i) => (
@@ -215,8 +215,8 @@ export default function Home() {
               )}
             </form>
             <div className="hero-chips">
-              {(categories.slice(0,6) || []).map((c) => (
-                <button key={c.id} className="chip" type="button" onClick={() => { setCategory(c.slug); setPage(1); fetchData(true) }}>{c.name}</button>
+              {trending.map((t) => (
+                <button key={t} className="chip" type="button" onClick={() => { setQ(t); setShowSuggest(false) }}>{t}</button>
               ))}
             </div>
             <div className="trusted-by">
