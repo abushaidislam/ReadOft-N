@@ -45,37 +45,41 @@ function GlobalUI() {
 function App() {
   return (
     <BrowserRouter>
-      <Navbar />
-      <Subnav />
-      <GlobalUI />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/categories" element={<Categories />} />
-        <Route path="/category/:slug" element={<Category />} />
-        <Route path="/article/:id" element={<Article />} />
-        <Route path="/a/:slug" element={<Article />} />
-        <Route path="/p/:token" element={<Preview />} />
-        <Route path="/author/:id" element={<Author />} />
-        <Route element={<ProtectedRoute roles={["reader","author","admin"]} />}> 
-          <Route path="/feed" element={<Feed />} />
-        </Route>
-        <Route element={<ProtectedRoute roles={["author","admin"]} />}> 
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/editor/:id?" element={<Editor />} />
-        </Route>
-        <Route element={<ProtectedRoute roles={["reader","author","admin"]} />}> 
-          <Route path="/profile" element={<Profile />} />
-        </Route>
-        <Route element={<ProtectedRoute roles={["admin"]} />}> 
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/admin/categories" element={<AdminCategories />} />
-        </Route>
-      </Routes>
-      <Footer />
+      <div className="app-shell">
+        <Navbar />
+        <Subnav />
+        <GlobalUI />
+        <main className="app-main">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/categories" element={<Categories />} />
+            <Route path="/category/:slug" element={<Category />} />
+            <Route path="/article/:id" element={<Article />} />
+            <Route path="/a/:slug" element={<Article />} />
+            <Route path="/p/:token" element={<Preview />} />
+            <Route path="/author/:id" element={<Author />} />
+            <Route element={<ProtectedRoute roles={["reader","author","admin"]} />}> 
+              <Route path="/feed" element={<Feed />} />
+            </Route>
+            <Route element={<ProtectedRoute roles={["author","admin"]} />}> 
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/editor/:id?" element={<Editor />} />
+            </Route>
+            <Route element={<ProtectedRoute roles={["reader","author","admin"]} />}> 
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+            <Route element={<ProtectedRoute roles={["admin"]} />}> 
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/categories" element={<AdminCategories />} />
+            </Route>
+          </Routes>
+        </main>
+        <Footer />
+      </div>
     </BrowserRouter>
   )
 }

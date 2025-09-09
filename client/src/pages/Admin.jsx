@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import Button from '../components/Button.jsx'
+import AdminLayout from '../components/AdminLayout.jsx'
 
 export default function Admin() {
   const { request, ui } = useAuth()
@@ -256,34 +257,20 @@ export default function Admin() {
   )
 
   return (
-    <div className="container page">
-      <h2>Admin Panel</h2>
+    <AdminLayout
+      tab={tab}
+      setTab={setTab}
+      pendingCount={pending.length}
+      appCount={apps.length}
+      reportCount={reports.filter(r=>r.status==='open').length}
+    >
       {error && <p className="error">{error}</p>}
-      <div className="admin-layout">
-        <aside className="admin-sidebar">
-        <nav className="admin-nav" aria-label="Admin sections">
-            <button className={`admin-link ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>Dashboard</button>
-            <button className={`admin-link ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>Users</button>
-            <button className={`admin-link ${tab==='pending'?'active':''}`} onClick={()=>setTab('pending')}>Pending Posts {pending.length?`(${pending.length})`:''}</button>
-            <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
-          <button className={`admin-link ${tab==='applications'?'active':''}`} onClick={()=>setTab('applications')}>Applications {apps.length?`(${apps.length})`:''}</button>
-          <button className={`admin-link ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')}>Reports {reports.filter(r=>r.status==='open').length?`(${reports.filter(r=>r.status==='open').length})`:''}</button>
-            <div className="muted" style={{ margin:'var(--space-12) var(--space-xs) var(--space-xs)', fontSize:'.85rem' }}>Quick links</div>
-            <Link className="admin-link" to="/editor">New Post</Link>
-            <Link className="admin-link" to="/dashboard">Author Dashboard</Link>
-            <Link className="admin-link" to="/profile">Profile</Link>
-            <Link className="admin-link" to="/">Home</Link>
-          </nav>
-        </aside>
-        <main className="admin-content">
-          {tab==='dashboard' && <DashboardView />}
-          {tab==='users' && <UsersView />}
-          {tab==='pending' && <PendingView />}
-          {tab==='categories' && <CategoriesView />}
-          {tab==='applications' && <ApplicationsView />}
-          {tab==='reports' && <ReportsView />}
-        </main>
-      </div>
-    </div>
+      {tab==='dashboard' && <DashboardView />}
+      {tab==='users' && <UsersView />}
+      {tab==='pending' && <PendingView />}
+      {tab==='categories' && <CategoriesView />}
+      {tab==='applications' && <ApplicationsView />}
+      {tab==='reports' && <ReportsView />}
+    </AdminLayout>
   )
 }

@@ -7,6 +7,8 @@ html, body, #root { height: 100% }
 body { margin: 0; font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
 a { color: var(--text); text-decoration: none }
 .container { width:100%; max-width:1280px; margin: 0 auto; padding: 0 var(--space-md) }
+.app-shell { min-height:100vh; display:flex; flex-direction:column }
+.app-main { flex:1 }
 @media (min-width: 1536px) { .container { max-width: 1440px; } }
 @media (min-width: 1920px) { .container { max-width: 1600px; } }
 
@@ -342,13 +344,13 @@ textarea[placeholder^="Write your content"] { font-family: ui-monospace, SFMono-
 .admin-layout { display:grid; grid-template-columns: 220px 1fr; gap:var(--space-md) }
 .admin-sidebar { background: var(--card); border:var(--space-1) solid var(--border); border-radius:var(--space-12); padding:var(--space-12); height:fit-content; position:sticky; top:112px }
 .admin-nav { display:flex; flex-direction:column; gap:var(--space-sm) }
-.admin-link { background:#0f1320; border:var(--space-1) solid var(--border); color:var(--text); padding:var(--space-sm) var(--space-12); border-radius:var(--space-sm); text-align:left; cursor:pointer }
+.admin-link { background:#0f1320; border:var(--space-1) solid var(--border); color:var(--text); padding:var(--space-sm) var(--space-12); border-radius:var(--space-sm); text-align:left; cursor:pointer; display:flex; align-items:center; justify-content:space-between }
 .admin-link.active { background:#141a2a }
 .admin-link:hover { filter: brightness(1.04) }
 [data-theme='light'] .admin-sidebar { background:#fff }
 [data-theme='light'] .admin-link { background:#f3f4f6 }
 [data-theme='light'] .admin-link.active { background:#e5e7eb }
-.admin-link:hover { filter: brightness(1.04) }
+.admin-link .count { background: var(--primary); color: #fff; border-radius: var(--space-sm); padding: 0 var(--space-6); font-size: .75rem }
 @media (max-width: 900px) {
   .admin-layout { grid-template-columns: 1fr }
   .admin-sidebar { position:static }
