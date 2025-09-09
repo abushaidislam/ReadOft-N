@@ -210,6 +210,9 @@ h1,h2,h3 { margin: var(--space-10) 0 }
 .spinner { width:var(--space-36); height:var(--space-36); border-radius:999px; border:var(--space-3) solid rgba(255,255,255,.2); border-top-color: #c7d2fe; animation: spin .8s linear infinite }
 @keyframes spin { to { transform: rotate(360deg) } }
 .sr-only { position:absolute; width:var(--space-1); height:var(--space-1); padding:0; margin:-var(--space-1); overflow:hidden; clip:rect(0,0,0,0); border:0 }
+/* Page-level loader */
+.page-loader { display:flex; align-items:center; justify-content:center; min-height:50vh }
+
 
 /* Reading progress bar */
 .read-progress { position:fixed; top:0; left:0; height:var(--space-3); background: linear-gradient(90deg, #a5b4fc, #34d399); z-index:100; transition: width .1s ease; box-shadow:0 0 var(--space-10) rgba(99,102,241,.4) }
