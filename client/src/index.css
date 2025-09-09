@@ -19,6 +19,8 @@ a { color: var(--text); text-decoration: none }
 .links a { position:relative; margin-right: var(--space-md); color: var(--muted); padding-bottom: var(--space-xs) }
 .links a::after { content:''; position:absolute; left:0; right:0; bottom:0; height:var(--space-xxs); background: linear-gradient(90deg, var(--primary), var(--accent)); transform: scaleX(0); transform-origin: left; transition: transform .25s ease }
 .links a:hover::after { transform: scaleX(1) }
+.links a.active { color: var(--text) }
+.links a.active::after { transform: scaleX(1) }
 .auth { display: flex; gap: var(--space-sm); align-items: center }
 .user-chip { color: var(--muted); font-size: 0.9rem }
 /* Profile avatar in header */

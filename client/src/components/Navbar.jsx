@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import { useEffect, useState } from 'react'
 import { useTheme } from '../state/ThemeContext.jsx'
@@ -38,17 +38,35 @@ export default function Navbar() {
           <span className={open ? 'bar -rotate-45' : 'bar'}></span>
         </button>
         <nav className={`links ${open ? 'open' : ''}`} onClick={() => setOpen(false)}>
-          <Link to="/">Home</Link>
-          {auth.user && <Link to="/feed">Feed</Link>}
-          <Link to="/categories">Categories</Link>
-          {auth.user && auth.user.role !== 'admin' && <Link to="/profile">Profile</Link>}
+          <NavLink to="/" className={({ isActive }) => (isActive ? 'active' : undefined)}>Home</NavLink>
+          {auth.user && (
+            <NavLink to="/feed" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+              Feed
+            </NavLink>
+          )}
+          <NavLink to="/categories" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            Categories
+          </NavLink>
+          {auth.user && auth.user.role !== 'admin' && (
+            <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+              Profile
+            </NavLink>
+          )}
           {auth.user?.role === 'author' ? (
             <>
-              <Link to="/dashboard">Dashboard</Link>
-              <Link to="/editor">New Post</Link>
+              <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Dashboard
+              </NavLink>
+              <NavLink to="/editor" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                New Post
+              </NavLink>
             </>
           ) : null}
-          {auth.user?.role === 'admin' && <Link to="/admin">Admin</Link>}
+          {auth.user?.role === 'admin' && (
+            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+              Admin
+            </NavLink>
+          )}
         </nav>
         <div className={`auth ${open ? 'open' : ''}`}>
           {auth.user ? (
