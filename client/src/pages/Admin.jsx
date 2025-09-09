@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
+import AdminAnalytics from './AdminAnalytics.jsx'
 
 export default function Admin() {
   const { request, ui } = useAuth()
@@ -262,6 +263,7 @@ export default function Admin() {
         <aside className="admin-sidebar">
         <nav className="admin-nav" aria-label="Admin sections">
             <button className={`admin-link ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>Dashboard</button>
+            <button className={`admin-link ${tab==='analytics'?'active':''}`} onClick={()=>setTab('analytics')}>Analytics</button>
             <button className={`admin-link ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>Users</button>
             <button className={`admin-link ${tab==='pending'?'active':''}`} onClick={()=>setTab('pending')}>Pending Posts {pending.length?`(${pending.length})`:''}</button>
             <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
@@ -276,6 +278,7 @@ export default function Admin() {
         </aside>
         <main className="admin-content">
           {tab==='dashboard' && <DashboardView />}
+          {tab==='analytics' && <AdminAnalytics />}
           {tab==='users' && <UsersView />}
           {tab==='pending' && <PendingView />}
           {tab==='categories' && <CategoriesView />}

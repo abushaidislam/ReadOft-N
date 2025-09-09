@@ -62,7 +62,7 @@ export default function Home() {
   useEffect(() => { setPage(1); fetchData(true).catch(console.error) }, [sort, period])
   useEffect(() => { request('/categories', { noGlobalLoading: true }).then(setCategories).catch(() => {}) }, [])
   useEffect(() => { try { localStorage.setItem('heroMuted', String(muted)) } catch {} }, [muted])
-  useMeta({ title: `${import.meta.env.VITE_APP_NAME || 'Readoft'} — Our freelancers will take it from here`, description: 'Find the perfect service for your project.', canonical: '/' })
+  useMeta({ title: `${import.meta.env.VITE_APP_NAME || 'Readoft'} — Discover our Recent blog article`, description: 'Find the perfect service for your project.', canonical: '/' })
 
   // live suggestions for hero search (articles + categories + authors)
   useEffect(() => {
@@ -153,7 +153,7 @@ export default function Home() {
         </button>
         <div className="container">
           <div className="hero-inner">
-            <h1 className="hero-title">Our freelancers will take it from here</h1>
+            <h1 className="hero-title">Discover our Recent Blog Article</h1>
             <form ref={heroSearchRef} className="hero-search" onSubmit={onHeroSearch} role="search" aria-label="Search services">
               <Search className="hero-search-icon" aria-hidden="true" />
               <input

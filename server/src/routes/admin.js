@@ -137,4 +137,244 @@ router.post('/author-requests/:id/reject', authRequired, requireRole(ROLES.ADMIN
   }
 })
 
+// Analytics endpoints
+router.get('/analytics/overview', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
+  try {
+    const [users, articles, comments, views] = await Promise.all([
+      supabase.from('users').select('id, created_at, role').order('created_at', { ascending: false }),
+      supabase.from('articles').select('id, created_at, status, views_count').order('created_at', { ascending: false }),
+      supabase.from('comments').select('id, created_at').order('created_at', { ascending: false }),
+      supabase.from('article_views').select('id, created_at').order('created_at', { ascending: false })
+    ])
+
+    const now = new Date()
+    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+    const stats = {
+      totalUsers: users.data?.length || 0,
+      totalArticles: articles.data?.length || 0,
+      totalComments: comments.data?.length || 0,
+      totalViews: views.data?.length || 0,
+      publishedArticles: articles.data?.filter(a => a.status === 'published').length || 0,
+      pendingArticles: articles.data?.filter(a => a.status === 'pending').length || 0,
+      authorsCount: users.data?.filter(u => u.role === 'author').length || 0,
+      adminsCount: users.data?.filter(u => u.role === 'admin').length || 0,
+      
+      // Growth metrics
+      newUsersLast30Days: users.data?.filter(u => new Date(u.created_at) >= last30Days).length || 0,
+      newUsersLast7Days: users.data?.filter(u => new Date(u.created_at) >= last7Days).length || 0,
+      newUsersYesterday: users.data?.filter(u => new Date(u.created_at) >= yesterday && new Date(u.created_at) < new Date(yesterday.getTime() + 24 * 60 * 60 * 1000)).length || 0,
+      
+      newArticlesLast30Days: articles.data?.filter(a => new Date(a.created_at) >= last30Days).length || 0,
+      newArticlesLast7Days: articles.data?.filter(a => new Date(a.created_at) >= last7Days).length || 0,
+      newArticlesYesterday: articles.data?.filter(a => new Date(a.created_at) >= yesterday && new Date(a.created_at) < new Date(yesterday.getTime() + 24 * 60 * 60 * 1000)).length || 0,
+      
+      viewsLast30Days: views.data?.filter(v => new Date(v.created_at) >= last30Days).length || 0,
+      viewsLast7Days: views.data?.filter(v => new Date(v.created_at) >= last7Days).length || 0,
+      viewsYesterday: views.data?.filter(v => new Date(v.created_at) >= yesterday && new Date(v.created_at) < new Date(yesterday.getTime() + 24 * 60 * 60 * 1000)).length || 0
+    }
+
+    res.json(stats)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to get analytics overview' })
+  }
+})
+
+router.get('/analytics/charts', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
+  try {
+    const [users, articles, views] = await Promise.all([
+      supabase.from('users').select('created_at').order('created_at', { ascending: true }),
+      supabase.from('articles').select('created_at, status').order('created_at', { ascending: true }),
+      supabase.from('article_views').select('created_at').order('created_at', { ascending: true })
+    ])
+
+    // Generate last 30 days data
+    const last30Days = []
+    const now = new Date()
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
+      const dateStr = date.toISOString().split('T')[0]
+      
+      const dayUsers = users.data?.filter(u => u.created_at.startsWith(dateStr)).length || 0
+      const dayArticles = articles.data?.filter(a => a.created_at.startsWith(dateStr) && a.status === 'published').length || 0
+      const dayViews = views.data?.filter(v => v.created_at.startsWith(dateStr)).length || 0
+      
+      last30Days.push({
+        date: dateStr,
+        users: dayUsers,
+        articles: dayArticles,
+        views: dayViews
+      })
+    }
+
+    // Top articles by views
+    const { data: topArticles } = await supabase
+      .from('articles')
+      .select('id, title, slug, views_count, author:users!articles_author_id_fkey(name)')
+      .eq('status', 'published')
+      .order('views_count', { ascending: false })
+      .limit(10)
+
+    // User role distribution
+    const roleDistribution = {
+      readers: users.data?.filter(u => u.role === 'reader').length || 0,
+      authors: users.data?.filter(u => u.role === 'author').length || 0,
+      admins: users.data?.filter(u => u.role === 'admin').length || 0
+    }
+
+    res.json({
+      dailyStats: last30Days,
+      topArticles: topArticles || [],
+      roleDistribution
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to get analytics charts' })
+  }
+})
+
+router.get('/analytics/realtime', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
+  try {
+    const now = new Date()
+    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const lastHour = new Date(now.getTime() - 60 * 60 * 1000)
+
+    const [recentViews, recentUsers, recentComments] = await Promise.all([
+      supabase.from('article_views').select('created_at, article:articles!article_views_article_id_fkey(title, slug)').gte('created_at', last24Hours.toISOString()).order('created_at', { ascending: false }).limit(20),
+      supabase.from('users').select('name, email, created_at').gte('created_at', last24Hours.toISOString()).order('created_at', { ascending: false }).limit(10),
+      supabase.from('comments').select('content, created_at, author:users!comments_author_id_fkey(name), article:articles!comments_article_id_fkey(title, slug)').gte('created_at', last24Hours.toISOString()).order('created_at', { ascending: false }).limit(10)
+    ])
+
+    const hourlyViews = []
+    for (let i = 23; i >= 0; i--) {
+      const hourStart = new Date(now.getTime() - i * 60 * 60 * 1000)
+      const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000)
+      const count = recentViews.data?.filter(v => {
+        const viewTime = new Date(v.created_at)
+        return viewTime >= hourStart && viewTime < hourEnd
+      }).length || 0
+      
+      hourlyViews.push({
+        hour: hourStart.getHours(),
+        views: count
+      })
+    }
+
+    res.json({
+      recentViews: recentViews.data || [],
+      recentUsers: recentUsers.data || [],
+      recentComments: recentComments.data || [],
+      hourlyViews,
+      activeUsersLastHour: recentViews.data?.filter(v => new Date(v.created_at) >= lastHour).length || 0
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to get realtime analytics' })
+  }
+})
+
+// Site Settings endpoints
+router.get('/settings', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
+  try {
+    // Get all settings from a settings table or use default values
+    const { data: settings, error } = await supabase
+      .from('site_settings')
+      .select('*')
+      .order('created_at', { ascending: false })
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 = table doesn't exist
+      throw error
+    }
+
+    // Default settings if table doesn't exist or is empty
+    const defaultSettings = {
+      site_name: 'ReadOft',
+      site_description: 'Discover our Recent Blog Article',
+      site_logo: '',
+      hero_title: 'Discover our Recent Blog Article',
+      hero_subtitle: 'Find the perfect service for your project.',
+      category_backgrounds: {},
+      theme_colors: {
+        primary: '#6366f1',
+        accent: '#10b981',
+        background: '#0b0c10',
+        card: '#111318'
+      }
+    }
+
+    // Convert array of settings to object
+    const settingsObj = (settings || []).reduce((acc, setting) => {
+      acc[setting.key] = setting.value
+      return acc
+    }, defaultSettings)
+
+    res.json(settingsObj)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to get settings' })
+  }
+})
+
+router.put('/settings', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const settings = req.body
+    
+    // Create settings table if it doesn't exist
+    const { error: createError } = await supabase.rpc('create_settings_table_if_not_exists')
+    if (createError && !createError.message.includes('already exists')) {
+      // If RPC doesn't exist, try direct SQL
+      await supabase.from('site_settings').select('id').limit(1)
+    }
+
+    // Update or insert each setting
+    const updates = Object.entries(settings).map(async ([key, value]) => {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({ 
+          key, 
+          value: typeof value === 'object' ? JSON.stringify(value) : value,
+          updated_at: new Date().toISOString()
+        }, { 
+          onConflict: 'key' 
+        })
+      
+      if (error) throw error
+    })
+
+    await Promise.all(updates)
+    res.json({ success: true })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to update settings' })
+  }
+})
+
+// Category background management
+router.put('/categories/:id/background', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const { id } = req.params
+    const { background_image, background_color } = req.body
+    
+    const { data, error } = await supabase
+      .from('categories')
+      .update({ 
+        background_image: background_image || null,
+        background_color: background_color || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select('*')
+      .single()
+    
+    if (error) throw error
+    res.json(data)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to update category background' })
+  }
+})
+
 export default router
