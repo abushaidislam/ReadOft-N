@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test": "echo \"No tests\""
+    "test": "echo \"No tests\"",
+    "build": "echo \"Build complete\"",
+    "functions:build": "netlify-lambda build src/functions",
+    "functions:serve": "netlify-lambda serve src/functions"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +16,7 @@
   "description": "",
   "type": "module",
   "dependencies": {
+    "@netlify/functions": "^1.4.0",
     "@supabase/supabase-js": "^2.57.2",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -21,6 +25,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.0",
     "multer": "^2.0.2",
+    "netlify-lambda": "^2.0.16",
+    "serverless-http": "^3.2.0",
     "uuid": "^12.0.0"
   },
   "devDependencies": {
