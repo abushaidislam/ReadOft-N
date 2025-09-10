@@ -6,13 +6,19 @@ export default function Dashboard() {
   const { request, auth } = useAuth()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [tab, setTab] = useState('all') // all | draft | pending | published
 
   const load = async () => {
     setLoading(true)
-    const data = await request(`/articles?author_id=${auth.user.id}`)
-    setItems(data.items)
-    setLoading(false)
+    try {
+      const data = await request(`/articles?author_id=${auth.user.id}`)
+      setItems(data.items)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load().catch(console.error) }, [])
@@ -30,6 +36,7 @@ export default function Dashboard() {
           </button>
         ))}
       </div>
+      {error && <p>{error}</p>}
       {loading ? <p>Loading...</p> : (
         <table className="table">
           <thead>
