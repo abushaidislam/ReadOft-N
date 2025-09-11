@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
 import { LineChart, BarChart, DonutChart } from '../components/AnalyticsChart.jsx'
 
@@ -11,12 +11,12 @@ export default function AdminAnalytics() {
   const [error, setError] = useState('')
   const [_refreshInterval, setRefreshInterval] = useState(null)
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [overviewData, chartsData, realtimeData] = await Promise.all([
-        request('/admin/analytics/overview'),
-        request('/admin/analytics/charts'),
-        request('/admin/analytics/realtime')
+        request('/admin/analytics/overview', { noGlobalLoading: true }),
+        request('/admin/analytics/charts', { noGlobalLoading: true }),
+        request('/admin/analytics/realtime', { noGlobalLoading: true })
       ])
       setOverview(overviewData)
       setCharts(chartsData)
@@ -27,10 +27,10 @@ export default function AdminAnalytics() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [request])
 
   useEffect(() => {
-    loadData()
+    loadData().catch(console.error)
     
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
@@ -41,12 +41,25 @@ export default function AdminAnalytics() {
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, []) // loadData is stable, no need to include
+  }, [loadData])
 
   const formatNumber = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
     return num?.toString() || '0'
+  }
+
+  const timeAgo = (ts) => {
+    const d = new Date(ts)
+    const diff = Date.now() - d.getTime()
+    const sec = Math.max(0, Math.floor(diff / 1000))
+    if (sec < 60) return `${sec}s ago`
+    const min = Math.floor(sec / 60)
+    if (min < 60) return `${min}m ago`
+    const hr = Math.floor(min / 60)
+    if (hr < 24) return `${hr}h ago`
+    const day = Math.floor(hr / 24)
+    return `${day}d ago`
   }
 
   // Utility function for future growth calculations
@@ -58,8 +71,61 @@ export default function AdminAnalytics() {
   if (loading) {
     return (
       <div className="container page">
-        <div className="global-loader">
-          <div className="spinner"></div>
+        <div className="page-head">
+          <div className="skeleton">
+            <div className="skeleton-line w-40" style={{ height: '24px' }} />
+          </div>
+        </div>
+
+        {/* Overview skeleton */}
+        <section className="section-card" style={{ marginBottom: '24px' }}>
+          <div className="skeleton">
+            <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="stat">
+                  <div className="skeleton-line w-60" style={{ height: '24px' }} />
+                  <div className="skeleton-line w-50" style={{ height: '12px', marginTop: '6px' }} />
+                  <div className="skeleton-line w-40" style={{ height: '10px', marginTop: '6px' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Charts skeleton */}
+        <div className="grid two" style={{ gap: '24px', marginBottom: '24px' }}>
+          <section className="section-card">
+            <div className="skeleton">
+              <div className="skeleton-line w-60" style={{ height: '20px', marginBottom: '12px' }} />
+              <div className="skeleton-thumb" style={{ width: '100%', height: '200px' }} />
+            </div>
+          </section>
+          <section className="section-card">
+            <div className="skeleton">
+              <div className="skeleton-line w-60" style={{ height: '20px', marginBottom: '12px' }} />
+              <div className="skeleton-thumb" style={{ width: '100%', height: '200px' }} />
+            </div>
+          </section>
+        </div>
+
+        {/* Lists skeleton */}
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+          {Array.from({ length: 3 }).map((_, k) => (
+            <section key={k} className="section-card">
+              <div className="skeleton">
+                <div className="skeleton-line w-50" style={{ height: '20px', marginBottom: '12px' }} />
+                {Array.from({ length: 6 }).map((__, i) => (
+                  <div key={i} className="media-item">
+                    <div className="skeleton-avatar" style={{ width: 32, height: 32 }} />
+                    <div className="media-body" style={{ width: '100%' }}>
+                      <div className="skeleton-line w-80" />
+                      <div className="skeleton-line w-50" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       </div>
     )
@@ -262,75 +328,87 @@ export default function AdminAnalytics() {
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
         {/* Recent Views */}
         <section className="section-card">
-          <h3 style={{ marginTop: 0 }}>Recent Views</h3>
-          <div className="media-list">
-            {realtime?.recentViews?.slice(0, 6).map((view, index) => (
-              <div key={index} className="media-item">
-                <div style={{ 
-                  width: '8px', 
-                  height: '8px', 
-                  background: '#10b981', 
-                  borderRadius: '50%',
-                  marginTop: '6px'
-                }}></div>
-                <div className="media-body">
-                  <div style={{ fontWeight: '500', marginBottom: '2px' }}>
-                    {view.article?.title || 'Unknown Article'}
-                  </div>
-                  <div className="muted" style={{ fontSize: '0.85rem' }}>
-                    {new Date(view.created_at).toLocaleTimeString()}
+          <h3 style={{ marginTop: 0 }}>Recent Views (24h)</h3>
+          {realtime?.recentViews?.length ? (
+            <div className="media-list">
+              {realtime.recentViews.slice(0, 6).map((view, index) => (
+                <div key={index} className="media-item">
+                  <div style={{ 
+                    width: '8px', 
+                    height: '8px', 
+                    background: '#10b981', 
+                    borderRadius: '50%',
+                    marginTop: '6px'
+                  }}></div>
+                  <div className="media-body">
+                    <div style={{ fontWeight: '500', marginBottom: '2px' }}>
+                      {view.article?.title || 'Unknown Article'}
+                    </div>
+                    <div className="muted" style={{ fontSize: '0.85rem' }}>
+                      {timeAgo(view.created_at)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="muted" style={{ fontSize: '.9rem' }}>No recent views in the last 24 hours.</div>
+          )}
         </section>
 
         {/* Recent Users */}
         <section className="section-card">
           <h3 style={{ marginTop: 0 }}>New Users (24h)</h3>
-          <div className="media-list">
-            {realtime?.recentUsers?.slice(0, 6).map((user, index) => (
-              <div key={index} className="media-item">
-                <div className="avatar-fallback" style={{ width: '32px', height: '32px' }}>
-                  {(user.name || user.email || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div className="media-body">
-                  <div style={{ fontWeight: '500', marginBottom: '2px' }}>
-                    {user.name || 'New User'}
+          {realtime?.recentUsers?.length ? (
+            <div className="media-list">
+              {realtime.recentUsers.slice(0, 6).map((user, index) => (
+                <div key={index} className="media-item">
+                  <div className="avatar-fallback" style={{ width: '32px', height: '32px' }}>
+                    {(user.name || user.email || 'U').charAt(0).toUpperCase()}
                   </div>
-                  <div className="muted" style={{ fontSize: '0.85rem' }}>
-                    {user.email} • {new Date(user.created_at).toLocaleTimeString()}
+                  <div className="media-body">
+                    <div style={{ fontWeight: '500', marginBottom: '2px' }}>
+                      {user.name || 'New User'}
+                    </div>
+                    <div className="muted" style={{ fontSize: '0.85rem' }}>
+                      {user.email} • {timeAgo(user.created_at)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="muted" style={{ fontSize: '.9rem' }}>No new users in the last 24 hours.</div>
+          )}
         </section>
 
         {/* Recent Comments */}
         <section className="section-card">
-          <h3 style={{ marginTop: 0 }}>Recent Comments</h3>
-          <div className="media-list">
-            {realtime?.recentComments?.slice(0, 6).map((comment, index) => (
-              <div key={index} className="media-item">
-                <div className="avatar-fallback" style={{ width: '32px', height: '32px' }}>
-                  {(comment.author?.name || 'A').charAt(0).toUpperCase()}
+          <h3 style={{ marginTop: 0 }}>Recent Comments (72h)</h3>
+          {realtime?.recentComments?.length ? (
+            <div className="media-list">
+              {realtime.recentComments.slice(0, 6).map((comment, index) => (
+                <div key={comment.id || index} className="media-item">
+                  <div className="avatar-fallback" style={{ width: '32px', height: '32px' }}>
+                    {(comment.author?.name || 'A').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="media-body">
+                    <div style={{ fontWeight: '500', marginBottom: '2px' }}>
+                      {comment.author?.name || 'Anonymous'}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', marginBottom: '2px' }}>
+                      {(comment.content || '').slice(0, 60)}{(comment.content||'').length > 60 ? '…' : ''}
+                    </div>
+                    <div className="muted" style={{ fontSize: '0.85rem' }}>
+                      on {(comment.article?.title || 'Unknown').slice(0, 30)}{(comment.article?.title||'').length>30?'…':''} • {timeAgo(comment.created_at)}
+                    </div>
+                  </div>
                 </div>
-                <div className="media-body">
-                  <div style={{ fontWeight: '500', marginBottom: '2px' }}>
-                    {comment.author?.name || 'Anonymous'}
-                  </div>
-                  <div style={{ fontSize: '0.9rem', marginBottom: '2px' }}>
-                    {comment.content?.slice(0, 60)}...
-                  </div>
-                  <div className="muted" style={{ fontSize: '0.85rem' }}>
-                    on {comment.article?.title?.slice(0, 30)}... • {new Date(comment.created_at).toLocaleTimeString()}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="muted" style={{ fontSize: '.9rem' }}>No recent comments in the last 72 hours.</div>
+          )}
         </section>
       </div>
     </div>

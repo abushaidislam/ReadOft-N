@@ -240,12 +240,13 @@ router.get('/analytics/realtime', authRequired, requireRole(ROLES.ADMIN), async 
   try {
     const now = new Date()
     const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const last72Hours = new Date(now.getTime() - 72 * 60 * 60 * 1000)
     const lastHour = new Date(now.getTime() - 60 * 60 * 1000)
 
     const [recentViews, recentUsers, recentComments] = await Promise.all([
       supabase.from('article_views').select('created_at, article:articles!article_views_article_id_fkey(title, slug)').gte('created_at', last24Hours.toISOString()).order('created_at', { ascending: false }).limit(20),
       supabase.from('users').select('name, email, created_at').gte('created_at', last24Hours.toISOString()).order('created_at', { ascending: false }).limit(10),
-      supabase.from('comments').select('content, created_at, author:users!comments_author_id_fkey(name), article:articles!comments_article_id_fkey(title, slug)').gte('created_at', last24Hours.toISOString()).order('created_at', { ascending: false }).limit(10)
+      supabase.from('comments').select('id, content, created_at, author:users!comments_user_id_fkey(name), article:articles!comments_article_id_fkey(title, slug)').gte('created_at', last72Hours.toISOString()).order('created_at', { ascending: false }).limit(20)
     ])
 
     const hourlyViews = []
@@ -273,6 +274,46 @@ router.get('/analytics/realtime', authRequired, requireRole(ROLES.ADMIN), async 
   } catch (e) {
     console.error(e)
     res.status(500).json({ message: 'Failed to get realtime analytics' })
+  }
+})
+
+// System health: basic table counts
+router.get('/health', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
+  try {
+    const tables = ['users', 'articles', 'comments', 'article_views', 'reports']
+    const counts = {}
+    for (const t of tables) {
+      try {
+        const { count, error } = await supabase.from(t).select('id', { count: 'exact', head: true })
+        if (error) throw error
+        counts[t] = count || 0
+      } catch (e) {
+        counts[t] = null
+      }
+    }
+    res.json({ status: 'ok', at: new Date(), counts })
+  } catch (e) {
+    console.error('health error', e)
+    res.status(500).json({ status: 'error' })
+  }
+})
+
+// Categories usage stats (counts of articles per category)
+router.get('/categories/stats', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('articles')
+      .select('categories')
+    if (error) throw error
+    const counts = {}
+    for (const row of (data || [])) {
+      const cats = Array.isArray(row.categories) ? row.categories : []
+      for (const c of cats) counts[c] = (counts[c] || 0) + 1
+    }
+    res.json(counts)
+  } catch (e) {
+    console.error('categories stats error', e)
+    res.status(500).json({ message: 'Failed to load category stats' })
   }
 })
 

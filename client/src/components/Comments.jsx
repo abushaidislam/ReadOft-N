@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 
@@ -9,19 +9,19 @@ export default function Comments({ articleId }) {
   const [content, setContent] = useState('')
   const [posting, setPosting] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const data = await request(`/articles/${articleId}/comments`, { noGlobalLoading: true })
       setItems(Array.isArray(data) ? data : [])
     } catch (e) {
-      ui.notify('Failed to load comments', 'error')
+      ui.notify(`Failed to load comments: ${e?.message || ''}`.trim(), 'error')
     } finally {
       setLoading(false)
     }
-  }
+  }, [request, articleId, ui])
 
-  useEffect(() => { load().catch(() => {}) }, [articleId])
+  useEffect(() => { load().catch(() => {}) }, [load])
 
   const tree = useMemo(() => buildTree(items), [items])
 
@@ -30,13 +30,13 @@ export default function Comments({ articleId }) {
     if (!body.content) return
     try {
       if (!parent_id) setPosting(true)
-      await request(`/articles/${articleId}/comments`, { method: 'POST', body: JSON.stringify(body) })
+      await request(`/articles/${articleId}/comments`, { method: 'POST', body: JSON.stringify(body), noGlobalLoading: true })
       await load()
       if (clear) clear('')
       else setContent('')
       ui.notify('Comment posted', 'success')
     } catch (e) {
-      // error toast already shown globally
+      ui.notify(e?.message || 'Failed to post comment', 'error')
     } finally {
       if (!parent_id) setPosting(false)
     }
@@ -63,14 +63,24 @@ export default function Comments({ articleId }) {
           <div className="skeleton-line w-80" />
           <div className="skeleton-line w-60" />
         </div>
-      ) : tree.top.length === 0 ? (
-        <p className="muted">Be the first to comment.</p>
       ) : (
-        <div className="comment-list">
-          {tree.top.map((c) => (
-            <CommentItem key={c.id} c={c} childMap={tree.children} me={auth.user} onReply={submit} onDeleteSuccess={load} />
-          ))}
-        </div>
+        <>
+          {posting && (
+            <div className="comment skeleton">
+              <div className="skeleton-line w-80" />
+              <div className="skeleton-line w-60" />
+            </div>
+          )}
+          {tree.top.length === 0 ? (
+            <p className="muted">Be the first to comment.</p>
+          ) : (
+            <div className="comment-list">
+              {tree.top.map((c) => (
+                <CommentItem key={c.id} c={c} childMap={tree.children} me={auth.user} onReply={submit} onDeleteSuccess={load} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   )
@@ -88,10 +98,11 @@ function CommentItem({ c, childMap, me, onReply, onDeleteSuccess }) {
     if (!confirm('Delete this comment?')) return
     try {
       setBusy(true)
-      await request(`/comments/${c.id}`, { method: 'DELETE' })
+      await request(`/comments/${c.id}`, { method: 'DELETE', noGlobalLoading: true })
       ui.notify('Comment deleted', 'success')
       onDeleteSuccess()
     } catch (e) {
+      if (import.meta.env.DEV) console.debug('delete comment failed', e)
     } finally {
       setBusy(false)
     }
@@ -118,9 +129,11 @@ function CommentItem({ c, childMap, me, onReply, onDeleteSuccess }) {
             try {
               const reason = prompt('Why are you reporting this comment?') || ''
               if (!reason.trim()) return
-              await request('/reports', { method:'POST', body: JSON.stringify({ target_type:'comment', target_id: c.id, reason }) })
+              await request('/reports', { method:'POST', body: JSON.stringify({ target_type:'comment', target_id: c.id, reason }), noGlobalLoading: true })
               ui.notify('Report submitted. Thank you.', 'info')
-            } catch {}
+            } catch (e) {
+              if (import.meta.env.DEV) console.debug('report comment failed', e)
+            }
           }}>Report</button>
         )}
         {canDelete && (
@@ -133,7 +146,7 @@ function CommentItem({ c, childMap, me, onReply, onDeleteSuccess }) {
         <div className="comment-form reply">
           <textarea rows={2} placeholder="Reply…" value={text} onChange={(e) => setText(e.target.value)} />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className={`btn btn-primary ${busy ? 'loading' : ''}`} disabled={busy || !text.trim()} onClick={() => onReply(c.id, text, setText)}>
+            <button className={`btn btn-primary ${busy ? 'loading' : ''}`} disabled={busy || !text.trim()} onClick={async()=>{ setBusy(true); try { await onReply(c.id, text, setText) } finally { setBusy(false) } }}>
               {busy ? 'Posting…' : 'Reply'}
             </button>
           </div>
