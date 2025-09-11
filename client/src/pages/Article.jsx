@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, lazy, Suspense } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import useMeta from '../utils/useMeta.js'
@@ -14,6 +14,8 @@ import ArticleSkeleton from '../components/ArticleSkeleton.jsx'
 export default function Article() {
   const { id, slug } = useParams()
   const { request, ui } = useAuth()
+  const requestRef = useRef(request)
+  useEffect(() => { requestRef.current = request }, [request])
   const [article, setArticle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -40,6 +42,33 @@ export default function Article() {
   })
   const [activeHeading, setActiveHeading] = useState('')
   const [focusMode, setFocusMode] = useState(false)
+  // Reader font family options
+  const fontOptions = useMemo(() => ([
+    { id: 'system', label: 'System', value: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif' },
+    { id: 'sans', label: 'Sans', value: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif' },
+    { id: 'serif', label: 'Serif', value: 'Georgia, Cambria, "Times New Roman", Times, serif' },
+    { id: 'mono', label: 'Mono', value: '"JetBrains Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' },
+  ]), [])
+  const [fontId, setFontId] = useState(() => {
+    try { return localStorage.getItem('reader.fontId') || 'system' } catch { return 'system' }
+  })
+  const fontFamily = useMemo(() => (fontOptions.find(f => f.id === fontId)?.value || fontOptions[0].value), [fontId, fontOptions])
+  // Offline reading state
+  const [offlineSaved, setOfflineSaved] = useState(false)
+  // Offline helpers (memoized)
+  const readOfflineStore = useCallback(() => {
+    try { return JSON.parse(localStorage.getItem('offline.articles') || '{}') } catch { return {} }
+  }, [])
+  const writeOfflineStore = useCallback((obj) => {
+    try { localStorage.setItem('offline.articles', JSON.stringify(obj)) } catch (e) { if (import.meta.env.DEV) console.debug('offline write failed', e) }
+  }, [])
+  const getOfflineArticle = useCallback((aid, aslug) => {
+    const store = readOfflineStore()
+    if (aid && store[aid]?.article) return store[aid].article
+    const arr = Object.values(store)
+    const hit = arr.find((x) => x?.article?.slug === aslug)
+    return hit?.article || null
+  }, [readOfflineStore])
 
   useEffect(() => {
     setLoading(true)
@@ -47,22 +76,32 @@ export default function Article() {
     setError('')
     
     const path = slug ? `/articles/slug/${slug}` : `/articles/${id}`
-    request(path, { noGlobalLoading: true })
+    requestRef.current(path, { noGlobalLoading: true })
       .then((a) => {
         setArticle(a)
         articleIdRef.current = a.id
         const aid = a.id
-        request(`/likes/status/${aid}`, { noGlobalLoading: true }).then((r) => setLiked(Boolean(r.liked))).catch((e) => { if (import.meta.env.DEV) console.debug('likes status failed', e) })
-        request(`/bookmarks/status/${aid}`, { noGlobalLoading: true }).then((r) => setSaved(Boolean(r.saved))).catch((e) => { if (import.meta.env.DEV) console.debug('bookmarks status failed', e) })
+        requestRef.current(`/likes/status/${aid}`, { noGlobalLoading: true }).then((r) => setLiked(Boolean(r.liked))).catch((e) => { if (import.meta.env.DEV) console.debug('likes status failed', e) })
+        requestRef.current(`/bookmarks/status/${aid}`, { noGlobalLoading: true }).then((r) => setSaved(Boolean(r.saved))).catch((e) => { if (import.meta.env.DEV) console.debug('bookmarks status failed', e) })
         setRelatedLoading(true)
-        request(`/articles/${aid}/related`, { noGlobalLoading: true })
+        requestRef.current(`/articles/${aid}/related`, { noGlobalLoading: true })
           .then((r) => setRelated(Array.isArray(r) ? r : []))
           .catch(() => setRelated([]))
           .finally(() => setRelatedLoading(false))
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        // offline fallback
+        const off = getOfflineArticle(id, slug)
+        if (off) {
+          setArticle(off)
+          articleIdRef.current = off.id
+          setError('')
+        } else {
+          setError(e.message)
+        }
+      })
       .finally(() => setLoading(false))
-  }, [id, slug])
+  }, [id, slug, getOfflineArticle])
 
   useEffect(() => {
     startRef.current = Date.now()
@@ -121,6 +160,7 @@ export default function Article() {
   // Persist reader prefs
   useEffect(() => { try { localStorage.setItem('reader.fontScale', String(fontScale)) } catch (e) { if (import.meta.env.DEV) console.debug('persist fontScale failed', e) } }, [fontScale])
   useEffect(() => { try { localStorage.setItem('reader.layoutWidth', layoutWidth) } catch (e) { if (import.meta.env.DEV) console.debug('persist layoutWidth failed', e) } }, [layoutWidth])
+  useEffect(() => { try { localStorage.setItem('reader.fontId', fontId) } catch (e) { if (import.meta.env.DEV) console.debug('persist fontId failed', e) } }, [fontId])
 
   // Scrollspy for TOC
   useEffect(() => {
@@ -144,6 +184,50 @@ export default function Article() {
       window.removeEventListener('resize', onScroll)
     }
   }, [toc])
+
+  // Keep offline save indicator in sync
+  useEffect(() => {
+    if (!article?.id) { setOfflineSaved(false); return }
+    const store = readOfflineStore()
+    setOfflineSaved(Boolean(store[article.id]))
+  }, [article?.id, readOfflineStore])
+
+  // Keyboard shortcuts: -/+ font, w width, j/k headings
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const tag = e.target?.tagName?.toLowerCase?.() || ''
+      if (['input', 'textarea', 'select'].includes(tag) || e.target?.isContentEditable) return
+      const k = e.key
+      if (k === '-' || k === '_') {
+        setFontScale((s) => Math.max(0.9, +(s - 0.1).toFixed(2)))
+      } else if (k === '=' || k === '+') {
+        setFontScale((s) => Math.min(1.6, +(s + 0.1).toFixed(2)))
+      } else if (k === 'w' || k === 'W') {
+        setLayoutWidth((w) => (w === 'narrow' ? 'wide' : 'narrow'))
+      } else if (k === 'j' || k === 'J') {
+        jumpToHeading(1)
+      } else if (k === 'k' || k === 'K') {
+        jumpToHeading(-1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toc])
+
+  const jumpToHeading = (dir) => {
+    const headings = Array.from(document.querySelectorAll('.markdown h2, .markdown h3')).filter((el) => el.id)
+    if (!headings.length) return
+    const y = window.scrollY + 100
+    let idx = 0
+    for (let i = 0; i < headings.length; i++) {
+      const top = headings[i].getBoundingClientRect().top + window.scrollY
+      if (top <= y) idx = i
+      else break
+    }
+    const target = dir > 0 ? headings[Math.min(idx + 1, headings.length - 1)] : headings[Math.max(0, idx - 1)]
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   // Plain text for TTS (strip code/markdown)
   const plainText = useMemo(() => {
@@ -296,27 +380,60 @@ export default function Article() {
       h6: [...(defaultSchema.attributes?.h6 || []), ['id']],
     },
   }
-  // Code block renderer with Copy button
-  const CodeRenderer = ({ inline, className, children, ...props }) => {
-    const codeText = String(children ?? '').replace(/\n$/, '')
-    if (inline) return <code className={className} {...props}>{children}</code>
+  const saveOffline = () => {
+    if (!article) return
+    const store = readOfflineStore()
+    store[article.id] = { article, saved_at: Date.now() }
+    writeOfflineStore(store)
+    setOfflineSaved(true)
+    try { ui?.notify?.('Saved for offline use', 'success') } catch (e) { if (import.meta.env.DEV) console.debug('notify failed', e) }
+  }
+  const removeOffline = () => {
+    if (!article) return
+    const store = readOfflineStore()
+    delete store[article.id]
+    writeOfflineStore(store)
+    setOfflineSaved(false)
+    try { ui?.notify?.('Removed offline copy', 'info') } catch (e) { if (import.meta.env.DEV) console.debug('notify failed', e) }
+  }
+
+  // Code block with language label + line numbers and Copy
+  const CodeBlock = ({ className, children, ...props }) => {
+    const preRef = useRef(null)
+    const [lineCount, setLineCount] = useState(1)
+    useEffect(() => {
+      const text = preRef.current?.innerText || ''
+      const count = text ? text.split('\n').length : 1
+      setLineCount(count)
+    }, [children])
+    const lang = (className || '').match(/language-([a-z0-9+#-]+)/i)?.[1] || ''
+    const onCopy = async (e) => {
+      try {
+        const txt = preRef.current?.innerText || ''
+        await navigator.clipboard.writeText(txt)
+        const btn = e.currentTarget
+        const prev = btn.textContent
+        btn.textContent = 'Copied'
+        setTimeout(() => { btn.textContent = prev }, 1200)
+      } catch (err) { if (import.meta.env.DEV) console.debug('copy code failed', err) }
+    }
+    const nums = Array.from({ length: lineCount })
     return (
-      <div className="code-block">
-        <button
-          className="copy-btn"
-          onClick={async (e) => {
-            try {
-              await navigator.clipboard.writeText(codeText)
-              const btn = e.currentTarget
-              const prev = btn.textContent
-              btn.textContent = 'Copied'
-              setTimeout(() => { btn.textContent = prev }, 1200)
-            } catch (e) { if (import.meta.env.DEV) console.debug('copy code failed', e) }
-          }}
-        >Copy</button>
-        <pre><code className={className} {...props}>{children}</code></pre>
+      <div className="code-block" style={{ position: 'relative' }}>
+        {lang && <span className="lang-badge" style={{ position:'absolute', top:8, left:8, fontSize:'.75rem', opacity:.8 }}>{lang}</span>}
+        <button className="copy-btn" onClick={onCopy} style={{ position:'absolute', top:8, right:8, zIndex:2, padding:'6px 10px', borderRadius:8, border:'1px solid var(--border)', background:'rgba(255,255,255,0.06)' }}>Copy</button>
+        <div className="code-grid" style={{ display:'grid', gridTemplateColumns:'auto 1fr', gap:8 }}>
+          <ol className="line-nums" style={{ listStyle:'none', margin:0, padding:'8px 8px 8px 12px', textAlign:'right', userSelect:'none', color:'var(--muted)', borderRight:'1px solid var(--border)' }}>
+            {nums.map((_, i) => (<li key={i} style={{ lineHeight:'1.5', fontVariantNumeric:'tabular-nums' }}>{i + 1}</li>))}
+          </ol>
+          <pre ref={preRef} style={{ margin:0 }}><code className={className} {...props}>{children}</code></pre>
+        </div>
       </div>
     )
+  }
+  const CodeRenderer = ({ inline, className, children, ...props }) => {
+    if (inline) return <code className={className} {...props}>{children}</code>
+    return <CodeBlock className={className} {...props}>{children}</CodeBlock>
   }
   return (
     <div className="container page">
@@ -344,12 +461,13 @@ export default function Article() {
         </div>
         <a className="btn" href={`/author/${article.author_id}`}>View Author</a>
       </div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap:'wrap' }}>
         <button className="btn btn-primary" onClick={like} disabled={liked}>{liked ? 'Liked' : 'Like'}</button>
         <button className="btn" onClick={follow}>Follow Author</button>
         <button className="btn" onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</button>
         <button className="btn" onClick={share}>Share</button>
         <button className="btn" onClick={copyLink}>Copy Link</button>
+        <button className="btn" onClick={offlineSaved ? removeOffline : saveOffline}>{offlineSaved ? 'Offline Saved' : 'Save Offline'}</button>
         <button className="btn" onClick={async()=>{
           try {
             const reason = prompt('Why are you reporting this article?') || ''
@@ -388,10 +506,16 @@ export default function Article() {
               <button className="btn" onClick={() => setFocusMode(f => !f)}>{focusMode ? 'Show TOC' : 'Focus mode'}</button>
             )}
           </div>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span className="muted">Font</span>
+            <select className="btn" value={fontId} onChange={(e) => setFontId(e.target.value)} style={{ padding:'6px 8px' }}>
+              {fontOptions.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </select>
+          </div>
         </div>
       </div>
       <div className={`markdown-layout ${layoutWidth} ${focusMode ? 'focus' : ''}`} style={{ display: 'grid', gridTemplateColumns: (!focusMode && toc.length) ? 'minmax(0,1fr) 280px' : '1fr', gap: 24 }}>
-        <div className="markdown" style={{ fontSize: `${fontScale}rem`, maxWidth: layoutWidth === 'narrow' ? '740px' : 'none' }}>
+        <div className="markdown" style={{ fontSize: `${fontScale}rem`, maxWidth: layoutWidth === 'narrow' ? '740px' : 'none', fontFamily }}>
           <ReactMarkdown remarkPlugins={[remarkGfm, remarkSlug]} rehypePlugins={[[rehypeSanitize, mdSchema], rehypeHighlight]} components={{ code: CodeRenderer }}>
           {article.content || ''}
           </ReactMarkdown>
