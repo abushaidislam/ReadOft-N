@@ -12,7 +12,7 @@ export default function Dashboard() {
   const load = async () => {
     setLoading(true)
     try {
-      const data = await request(`/articles?author_id=${auth.user.id}`)
+      const data = await request(`/articles?author_id=${auth.user.id}`, { noGlobalLoading: true })
       setItems(data.items)
     } catch (e) {
       setError(e.message)
@@ -22,6 +22,26 @@ export default function Dashboard() {
   }
 
   useEffect(() => { load().catch(console.error) }, [])
+
+  const DashboardSkeleton = () => (
+    <div className="skeleton">
+      <table className="table">
+        <thead>
+          <tr><th>Title</th><th>Status</th><th>Likes</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <tr key={i}>
+              <td><div className="skeleton-line w-80" /></td>
+              <td><span className="skeleton-chip" /></td>
+              <td><div className="skeleton-line w-40" /></td>
+              <td><div className="skeleton-line w-50" /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 
   return (
     <div className="container page">
@@ -37,7 +57,7 @@ export default function Dashboard() {
         ))}
       </div>
       {error && <p>{error}</p>}
-      {loading ? <p>Loading...</p> : (
+      {loading ? <DashboardSkeleton /> : (
         <table className="table">
           <thead>
             <tr><th>Title</th><th>Status</th><th>Likes</th><th>Actions</th></tr>
@@ -52,13 +72,13 @@ export default function Dashboard() {
                   <Link className="btn" to={`/editor/${a.id}`}>Edit</Link>
                   {a.status==='draft' && (
                     <button className="btn btn-primary" style={{marginLeft:8}} onClick={async () => {
-                      await request(`/articles/${a.id}`, { method: 'PUT', body: JSON.stringify({ status: 'pending' }) })
+                      await request(`/articles/${a.id}`, { method: 'PUT', body: JSON.stringify({ status: 'pending' }), noGlobalLoading: true })
                       await load()
                     }}>Submit for review</button>
                   )}
                   <button className="btn" style={{marginLeft:8}} onClick={async () => {
                     if (!confirm('Delete this article? This cannot be undone.')) return
-                    await request(`/articles/${a.id}`, { method: 'DELETE' })
+                    await request(`/articles/${a.id}`, { method: 'DELETE', noGlobalLoading: true })
                     load()
                   }}>Delete</button>
                 </td>

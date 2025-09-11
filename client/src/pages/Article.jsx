@@ -55,10 +55,35 @@ export default function Article() {
   const fontFamily = useMemo(() => (fontOptions.find(f => f.id === fontId)?.value || fontOptions[0].value), [fontId, fontOptions])
   // Offline reading state
   const [offlineSaved, setOfflineSaved] = useState(false)
+  // Comments meta
+  const [commentCount, setCommentCount] = useState(0)
+  const [commentsKey, setCommentsKey] = useState(0)
+  const [shareCount, setShareCount] = useState(() => Number(article?.share_count || 0))
+  const [focusCommentKey, setFocusCommentKey] = useState(0)
+  const [showComments, setShowComments] = useState(false)
+  // Local busy states for small actions (avoid global loader)
+  const [likeBusy, setLikeBusy] = useState(false)
+  const [saveBusy, setSaveBusy] = useState(false)
+  const [followBusy, setFollowBusy] = useState(false)
+  const [reportBusy, setReportBusy] = useState(false)
   // Offline helpers (memoized)
   const readOfflineStore = useCallback(() => {
     try { return JSON.parse(localStorage.getItem('offline.articles') || '{}') } catch { return {} }
   }, [])
+
+  // Compute and set anchor offset to keep headings visible below sticky controls
+  const measureAnchorOffset = useCallback(() => {
+    try {
+      const rc = document.querySelector('.reader-controls')
+      const h = rc ? Math.ceil(rc.getBoundingClientRect().height + 12) : 96
+      document.documentElement.style.setProperty('--anchor-offset', `${h}px`)
+    } catch (e) { if (import.meta.env.DEV) console.debug('measure anchor offset failed', e) }
+  }, [])
+  useEffect(() => {
+    measureAnchorOffset()
+    window.addEventListener('resize', measureAnchorOffset)
+    return () => window.removeEventListener('resize', measureAnchorOffset)
+  }, [measureAnchorOffset])
   const writeOfflineStore = useCallback((obj) => {
     try { localStorage.setItem('offline.articles', JSON.stringify(obj)) } catch (e) { if (import.meta.env.DEV) console.debug('offline write failed', e) }
   }, [])
@@ -109,7 +134,7 @@ export default function Article() {
       const secs = Math.round((Date.now() - startRef.current) / 1000)
       const aid = articleIdRef.current || id
       if (secs > 0 && aid) {
-        request('/reads', { method: 'POST', body: JSON.stringify({ article_id: aid, duration_seconds: secs }) }).catch((e) => { if (import.meta.env.DEV) console.debug('reads post failed', e) })
+        requestRef.current('/reads', { method: 'POST', body: JSON.stringify({ article_id: aid, duration_seconds: secs }) }).catch((e) => { if (import.meta.env.DEV) console.debug('reads post failed', e) })
       }
     }
   }, [id, slug])
@@ -157,6 +182,20 @@ export default function Article() {
     return () => clearTimeout(t)
   }, [article?.content])
 
+  // If the URL has a hash, scroll to it below the sticky controls and highlight it
+  useEffect(() => {
+    const hash = (typeof window !== 'undefined' && window.location.hash) ? window.location.hash.slice(1) : ''
+    if (!hash) return
+    const t = setTimeout(() => {
+      const el = document.getElementById(hash)
+      if (!el) return
+      el.classList.add('anchor-highlight')
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setTimeout(() => { el.classList.remove('anchor-highlight') }, 1600)
+    }, 0)
+    return () => clearTimeout(t)
+  }, [article?.content])
+
   // Persist reader prefs
   useEffect(() => { try { localStorage.setItem('reader.fontScale', String(fontScale)) } catch (e) { if (import.meta.env.DEV) console.debug('persist fontScale failed', e) } }, [fontScale])
   useEffect(() => { try { localStorage.setItem('reader.layoutWidth', layoutWidth) } catch (e) { if (import.meta.env.DEV) console.debug('persist layoutWidth failed', e) } }, [layoutWidth])
@@ -168,7 +207,9 @@ export default function Article() {
     const headings = Array.from(document.querySelectorAll('.markdown h2, .markdown h3')).filter(el => el.id)
     if (!headings.length) return
     const onScroll = () => {
-      const top = window.scrollY + 100
+      const css = getComputedStyle(document.documentElement)
+      const off = parseInt(css.getPropertyValue('--anchor-offset'))
+      const top = window.scrollY + (Number.isFinite(off) ? off : 100)
       let current = headings[0]?.id || ''
       for (const el of headings) {
         if (el.getBoundingClientRect().top + window.scrollY <= top) current = el.id
@@ -218,7 +259,9 @@ export default function Article() {
   const jumpToHeading = (dir) => {
     const headings = Array.from(document.querySelectorAll('.markdown h2, .markdown h3')).filter((el) => el.id)
     if (!headings.length) return
-    const y = window.scrollY + 100
+    const css = getComputedStyle(document.documentElement)
+    const off = parseInt(css.getPropertyValue('--anchor-offset'))
+    const y = window.scrollY + (Number.isFinite(off) ? off : 100)
     let idx = 0
     for (let i = 0; i < headings.length; i++) {
       const top = headings[i].getBoundingClientRect().top + window.scrollY
@@ -298,34 +341,51 @@ export default function Article() {
     image: article?.thumbnail_url || undefined,
     canonical: article ? (article.slug ? `/a/${article.slug}` : `/article/${article.id}`) : undefined,
   })
+  // keep local shareCount in sync when article changes
+  useEffect(() => { setShareCount(Number(article?.share_count || 0)) }, [article?.share_count])
 
   if (error) return <div className="container page"><p className="error">{error}</p></div>
   if (loading || !article) return <ArticleSkeleton />
 
-  const like = async () => {
+  const toggleLike = async () => {
+    if (likeBusy) return
+    setLikeBusy(true)
     try {
-      const resp = await request(`/likes/${article.id}`, { method: 'POST' })
-      if (resp.success) {
-        setArticle({ ...article, like_count: article.like_count + 1 })
-        setLiked(true)
+      if (!liked) {
+        const resp = await request(`/likes/${article.id}`, { method: 'POST', noGlobalLoading: true })
+        if (resp?.liked || resp?.success) {
+          setLiked(true)
+          setArticle((prev) => ({ ...prev, like_count: (prev?.like_count || 0) + 1 }))
+        }
+      } else {
+        const resp = await request(`/likes/${article.id}`, { method: 'DELETE', noGlobalLoading: true })
+        if (resp?.liked === false || resp?.success !== false) {
+          setLiked(false)
+          setArticle((prev) => ({ ...prev, like_count: Math.max(0, (prev?.like_count || 0) - 1) }))
+        }
       }
-    } catch (e) { if (import.meta.env.DEV) console.debug('like failed', e) }
+    } catch (e) { if (import.meta.env.DEV) console.debug('toggle like failed', e) } finally { setLikeBusy(false) }
   }
   const follow = async () => {
+    if (followBusy) return
+    setFollowBusy(true)
     try {
-      await request(`/follows/${article.author_id}`, { method: 'POST' })
-    } catch (e) { if (import.meta.env.DEV) console.debug('follow failed', e) }
+      await request(`/follows/${article.author_id}`, { method: 'POST', noGlobalLoading: true })
+      ui?.notify?.('Following author', 'success')
+    } catch (e) { if (import.meta.env.DEV) console.debug('follow failed', e) } finally { setFollowBusy(false) }
   }
   const toggleSave = async () => {
+    if (saveBusy) return
+    setSaveBusy(true)
     try {
       if (!saved) {
-        const r = await request(`/bookmarks/${article.id}`, { method: 'POST' })
+        const r = await request(`/bookmarks/${article.id}`, { method: 'POST', noGlobalLoading: true })
         if (r?.saved) setSaved(true)
       } else {
-        const r = await request(`/bookmarks/${article.id}`, { method: 'DELETE' })
+        const r = await request(`/bookmarks/${article.id}`, { method: 'DELETE', noGlobalLoading: true })
         if (r && r.saved === false) setSaved(false)
       }
-    } catch (e) { if (import.meta.env.DEV) console.debug('toggle save failed', e) }
+    } catch (e) { if (import.meta.env.DEV) console.debug('toggle save failed', e) } finally { setSaveBusy(false) }
   }
   const copyLink = async () => {
     try {
@@ -343,7 +403,33 @@ export default function Article() {
         await navigator.clipboard.writeText(link)
         ui?.notify?.('Link copied', 'success')
       }
+      setShareCount((n) => (Number.isFinite(n) ? n + 1 : 1))
     } catch (e) { if (import.meta.env.DEV) console.debug('share failed', e) }
+  }
+
+  const goToComments = () => {
+    try {
+      setShowComments(true)
+      setCommentsKey((k) => k + 1)
+      setFocusCommentKey((k) => k + 1)
+    } catch (e) { if (import.meta.env.DEV) console.debug('scroll to comments failed', e) }
+  }
+
+  // Smooth-scroll to a heading from TOC and briefly highlight it so it's visible under sticky controls
+  const handleTocClick = (e, id) => {
+    try {
+      e.preventDefault()
+      const el = document.getElementById(id)
+      if (!el) return
+      // Remove previous highlight if any
+      document.querySelectorAll('.anchor-highlight').forEach((n) => n.classList.remove('anchor-highlight'))
+      // Highlight and smooth scroll
+      el.classList.add('anchor-highlight')
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      try { window.history.replaceState(null, '', `#${id}`) } catch (e) { if (import.meta.env.DEV) console.debug('replaceState failed', e) }
+      // Clean up highlight after animation
+      setTimeout(() => { el.classList.remove('anchor-highlight') }, 1600)
+    } catch (err) { if (import.meta.env.DEV) console.debug('toc click failed', err) }
   }
 
   // ---- TTS helpers ----
@@ -435,8 +521,66 @@ export default function Article() {
     if (inline) return <code className={className} {...props}>{children}</code>
     return <CodeBlock className={className} {...props}>{children}</CodeBlock>
   }
+  // Reusable action bar (like, comments, follow, save, share, copy, offline, report)
+  const ActionsBar = () => (
+    <div className="btn-group" style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
+      <button className={`btn icon-btn with-count ${liked ? 'active' : ''}`} aria-label={`${liked ? 'Unlike' : 'Like'} (${article.like_count})`} title={liked ? 'Unlike' : 'Like'} onClick={toggleLike} disabled={likeBusy}>
+        {likeBusy ? (
+          <div className="spinner-sm" aria-hidden="true" />
+        ) : (
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 6 4 4 6.5 4c1.74 0 3.41 1.01 4.22 2.5C11.53 5.01 13.2 4 14.94 4 17.44 4 19.44 6 19.44 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+        )}
+        <span className="btn-count">{article.like_count}</span>
+      </button>
+      <button className="btn icon-btn with-count" aria-label={`Comments (${commentCount})`} title="Comments" onClick={goToComments}>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M21 6h-18v12h4v4l4-4h10z"></path></svg>
+        <span className="btn-count">{commentCount}</span>
+      </button>
+      <button className="btn icon-btn" aria-label="Follow Author" title="Follow Author" onClick={follow} disabled={followBusy}>
+        {followBusy ? (
+          <div className="spinner-sm" aria-hidden="true" />
+        ) : (
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm-7 8v-1c0-3.31 4.03-5 7-5s7 1.69 7 5v1H5z"></path><path d="M19 8h-2V6h-2V4h2V2h2v2h2v2h-2v2z"></path></svg>
+        )}
+      </button>
+      <button className={`btn icon-btn ${saved ? 'active' : ''}`} aria-label={saved ? 'Saved' : 'Save'} title={saved ? 'Saved' : 'Save'} onClick={toggleSave} disabled={saveBusy}>
+        {saveBusy ? (
+          <div className="spinner-sm" aria-hidden="true" />
+        ) : (
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M6 4h12v16l-6-4-6 4z"></path></svg>
+        )}
+      </button>
+      <button className="btn icon-btn with-count" aria-label={`Share (${shareCount})`} title="Share" onClick={share}>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M12 3l4 4h-3v6h-2V7H8l4-4z"></path><path d="M5 13h14v8H5z"></path></svg>
+        <span className="btn-count">{shareCount}</span>
+      </button>
+      <button className="btn icon-btn" aria-label="Copy Link" title="Copy Link" onClick={copyLink}>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M3.9 12a5 5 0 015-5h3v2H8.9a3 3 0 000 6H12v2H8.9a5 5 0 01-5-5zm7.1 1h3.1a3 3 0 000-6H12V5h2.1a5 5 0 110 10H12v-2z"></path></svg>
+      </button>
+      <button className={`btn icon-btn ${offlineSaved ? 'active' : ''}`} aria-label={offlineSaved ? 'Offline Saved' : 'Save Offline'} title={offlineSaved ? 'Offline Saved' : 'Save Offline'} onClick={offlineSaved ? removeOffline : saveOffline}>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M5 20h14v-2H5v2z"></path><path d="M11 4h2v8h3l-4 4-4-4h3V4z"></path></svg>
+      </button>
+      <button className="btn icon-btn" aria-label="Report" title="Report" onClick={async()=>{
+        if (reportBusy) return
+        setReportBusy(true)
+        try {
+          const reason = prompt('Why are you reporting this article?') || ''
+          if (!reason.trim()) return
+          await request('/reports', { method:'POST', body: JSON.stringify({ target_type:'post', target_id: article.id, reason }), noGlobalLoading: true })
+          ui.notify('Report submitted. Thank you.', 'info')
+        } catch (e) { if (import.meta.env.DEV) console.debug('report post failed', e) } finally { setReportBusy(false) }
+      }} disabled={reportBusy}>
+        {reportBusy ? (
+          <div className="spinner-sm" aria-hidden="true" />
+        ) : (
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M4 4h10l-1-2h7v13h-7l1 2H4z"></path></svg>
+        )}
+      </button>
+    </div>
+  )
+
   return (
-    <div className="container page">
+    <div className="container page article-page">
       {article && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
           "@context": "https://schema.org",
@@ -457,38 +601,19 @@ export default function Article() {
         <div>
           <h1>{article.title}</h1>
           <div className="muted">{readingMinutes} min read</div>
+          <div className="author-chip" style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:6 }}>
+            {article.author?.avatar_url ? (
+              <img src={article.author.avatar_url} alt="author avatar" className="avatar" loading="lazy" decoding="async" style={{ width:28, height:28 }} />
+            ) : (
+              <span className="avatar-fallback" style={{ width:28, height:28 }}>{(article.author?.name || 'U').slice(0,1).toUpperCase()}</span>
+            )}
+            <a href={`/author/${article.author_id}`} className="author-name">{article.author?.name || 'Author'}</a>
+          </div>
           <p className="muted">{new Date(article.created_at).toLocaleString()} • {article.like_count} likes</p>
         </div>
         <a className="btn" href={`/author/${article.author_id}`}>View Author</a>
       </div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap:'wrap' }}>
-        <button className="btn btn-primary" onClick={like} disabled={liked}>{liked ? 'Liked' : 'Like'}</button>
-        <button className="btn" onClick={follow}>Follow Author</button>
-        <button className="btn" onClick={toggleSave}>{saved ? 'Saved' : 'Save'}</button>
-        <button className="btn" onClick={share}>Share</button>
-        <button className="btn" onClick={copyLink}>Copy Link</button>
-        <button className="btn" onClick={offlineSaved ? removeOffline : saveOffline}>{offlineSaved ? 'Offline Saved' : 'Save Offline'}</button>
-        <button className="btn" onClick={async()=>{
-          try {
-            const reason = prompt('Why are you reporting this article?') || ''
-            if (!reason.trim()) return
-            await request('/reports', { method:'POST', body: JSON.stringify({ target_type:'post', target_id: article.id, reason }) })
-            ui.notify('Report submitted. Thank you.', 'info')
-          } catch (e) { if (import.meta.env.DEV) console.debug('report post failed', e) }
-        }}>Report</button>
-        {ttsSupported && (
-          <div className="btn-group" style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <button className="btn" onClick={startTTS} disabled={isSpeaking && !isPaused}>Listen</button>
-            <button className="btn" onClick={() => (isPaused ? resumeTTS() : pauseTTS())} disabled={!isSpeaking}>
-              {isPaused ? 'Resume' : 'Pause'}
-            </button>
-            <button className="btn" onClick={stopTTS} disabled={!isSpeaking}>Stop</button>
-            <span className="muted" style={{ fontSize: '.85rem' }}>Rate {rate.toFixed(1)}x</span>
-            <button className="btn" onClick={() => setRate(r => Math.max(0.8, +(r - 0.1).toFixed(2)))}>-</button>
-            <button className="btn" onClick={() => setRate(r => Math.min(1.8, +(r + 0.1).toFixed(2)))}>+</button>
-          </div>
-        )}
-      </div>
+      {/* Actions bar moved to end of article content */}
       <div className="section-card reader-controls">
         <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', justifyContent:'space-between' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -512,6 +637,30 @@ export default function Article() {
               {fontOptions.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
             </select>
           </div>
+          {ttsSupported && (
+            <div className="tts-controls" style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <button className="btn icon-btn" aria-label="Listen" title="Listen" onClick={startTTS} disabled={isSpeaking && !isPaused}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+              </button>
+              <button className="btn icon-btn" aria-label={isPaused ? 'Resume' : 'Pause'} title={isPaused ? 'Resume' : 'Pause'} onClick={() => (isPaused ? resumeTTS() : pauseTTS())} disabled={!isSpeaking}>
+                {isPaused ? (
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"></path></svg>
+                )}
+              </button>
+              <button className="btn icon-btn" aria-label="Stop" title="Stop" onClick={stopTTS} disabled={!isSpeaking}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 6h12v12H6z"></path></svg>
+              </button>
+              <span className="muted" style={{ fontSize: '.85rem', minWidth: 40, textAlign:'center' }}>{rate.toFixed(1)}x</span>
+              <button className="btn icon-btn" aria-label="Slower" title="Slower" onClick={() => setRate(r => Math.max(0.8, +(r - 0.1).toFixed(2)))}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M5 11h14v2H5z"></path></svg>
+              </button>
+              <button className="btn icon-btn" aria-label="Faster" title="Faster" onClick={() => setRate(r => Math.min(1.8, +(r + 0.1).toFixed(2)))}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M11 5h2v14h-2zM5 11h14v2H5z"></path></svg>
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <div className={`markdown-layout ${layoutWidth} ${focusMode ? 'focus' : ''}`} style={{ display: 'grid', gridTemplateColumns: (!focusMode && toc.length) ? 'minmax(0,1fr) 280px' : '1fr', gap: 24 }}>
@@ -531,6 +680,7 @@ export default function Article() {
                       <a
                         className={h.id === activeHeading ? 'active' : ''}
                         href={`#${h.id}`}
+                        onClick={(e) => handleTocClick(e, h.id)}
                         style={h.id === activeHeading ? { fontWeight: 600, textDecoration: 'underline' } : undefined}
                       >
                         {h.text}
@@ -542,10 +692,34 @@ export default function Article() {
             </div>
           </aside>
         )}
+        {/* Author box under content */}
+        <div className="section-card author-box" style={{ gridColumn:'1 / 2', display:'flex', alignItems:'center', gap:12 }}>
+          {article.author?.avatar_url ? (
+            <img src={article.author.avatar_url} alt="author avatar" className="avatar" loading="lazy" decoding="async" style={{ width:48, height:48 }} />
+          ) : (
+            <span className="avatar-fallback" style={{ width:48, height:48, fontSize:'.9rem' }}>{(article.author?.name || 'U').slice(0,1).toUpperCase()}</span>
+          )}
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+              <strong>{article.author?.name || 'Author'}</strong>
+              <a href={`/author/${article.author_id}`} className="btn btn-link">View profile</a>
+              <button className="btn" onClick={follow}>Follow</button>
+            </div>
+            <div className="muted" style={{ fontSize:'.9rem' }}>Posted on {new Date(article.created_at).toLocaleDateString()}</div>
+          </div>
+        </div>
+        {/* Divider only under content column */}
+        <hr className="article-divider" style={{ gridColumn:'1 / 2', margin:'8px 0 12px' }} />
+        {/* Centered actions, aligned to content column */}
+        <div className="actions-wrap" style={{ gridColumn:'1 / 2', marginTop: 8, marginBottom: 8 }}>
+          <ActionsBar />
+        </div>
       </div>
-      <Suspense fallback={<div className="section-card"><div className="skeleton-line w-80" /><div className="skeleton-line w-60" /></div>}>
-        <Comments articleId={article.id} />
-      </Suspense>
+      {showComments && (
+        <Suspense fallback={<div className="section-card"><div className="skeleton-line w-80" /><div className="skeleton-line w-60" /></div>}>
+          <Comments articleId={article.id} onCountChange={setCommentCount} refreshKey={commentsKey} focusInputKey={focusCommentKey} />
+        </Suspense>
+      )}
       {(relatedLoading || related.length > 0) && (
         <section style={{ marginTop: 24 }}>
           <h3 style={{ marginTop: 0 }}>You might also like</h3>

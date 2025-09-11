@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 
-export default function Comments({ articleId }) {
+export default function Comments({ articleId, onCountChange = () => {}, refreshKey = 0, focusInputKey = 0 }) {
   const { request, auth, ui } = useAuth()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [content, setContent] = useState('')
   const [posting, setPosting] = useState(false)
+  const textareaRef = useRef(null)
+  const lastKeyRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -21,7 +23,22 @@ export default function Comments({ articleId }) {
     }
   }, [request, articleId, ui])
 
-  useEffect(() => { load().catch(() => {}) }, [load])
+  // Load initially and whenever refreshKey changes (guarded against dev double-invoke)
+  useEffect(() => {
+    if (lastKeyRef.current === refreshKey) return
+    lastKeyRef.current = refreshKey
+    load().catch(() => {})
+  }, [load, refreshKey])
+  useEffect(() => { try { onCountChange(items.length) } catch (e) { if (import.meta.env.DEV) console.debug('onCountChange failed', e) } }, [items, onCountChange])
+  useEffect(() => {
+    try {
+      if (focusInputKey) {
+        const root = document.getElementById('comments')
+        if (root) root.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        textareaRef.current?.focus()
+      }
+    } catch (e) { if (import.meta.env.DEV) console.debug('focus comments failed', e) }
+  }, [focusInputKey])
 
   const tree = useMemo(() => buildTree(items), [items])
 
@@ -43,11 +60,11 @@ export default function Comments({ articleId }) {
   }
 
   return (
-    <section className="comments">
+    <section className="comments" id="comments">
       <h3>Comments</h3>
       {auth.user ? (
         <div className="comment-form">
-          <textarea rows={3} placeholder="Write a comment…" value={content} onChange={(e) => setContent(e.target.value)} />
+          <textarea rows={3} ref={textareaRef} placeholder="Write a comment…" value={content} onChange={(e) => setContent(e.target.value)} />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className={`btn btn-primary ${posting ? 'loading' : ''}`} disabled={posting || !content.trim()} onClick={() => submit(null)}>
               {posting ? 'Posting…' : 'Post'}

@@ -1,12 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function Navbar() {
   const { auth, logout, ui } = useAuth()
   const nav = useNavigate()
   const [open, setOpen] = useState(false)
   const [showNotif, setShowNotif] = useState(false)
+  const [notifFilter, setNotifFilter] = useState('all') // all | unread
   const [pfpOk, setPfpOk] = useState(true)
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('theme') || 'dark' } catch { return 'dark' }
@@ -17,15 +18,18 @@ export default function Navbar() {
     nav('/')
   }
 
+  // Keep a stable ref for ui to avoid effect loops when notifications update
+  const uiRef = useRef(ui)
+  useEffect(() => { uiRef.current = ui }, [ui])
   useEffect(() => {
     if (!auth.user) return
-    ui.loadNotifications().catch(() => {})
-    const t = setInterval(() => ui.loadNotifications().catch(() => {}), 20000)
+    uiRef.current.loadNotifications().catch((e) => { if (import.meta.env.DEV) console.debug('load notifs failed', e) })
+    const t = setInterval(() => uiRef.current.loadNotifications().catch((e) => { if (import.meta.env.DEV) console.debug('interval notifs failed', e) }), 20000)
     return () => clearInterval(t)
   }, [auth.user])
 
   useEffect(() => {
-    try { localStorage.setItem('theme', theme) } catch {}
+    try { localStorage.setItem('theme', theme) } catch (e) { if (import.meta.env.DEV) console.debug('persist theme failed', e) }
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
   }, [theme])
@@ -78,11 +82,17 @@ export default function Navbar() {
                 <div className="notif-menu" onMouseLeave={() => setShowNotif(false)}>
                   <div className="notif-head">
                     <strong>Notifications</strong>
-                    {ui.unread > 0 && (
-                      <button className="btn" onClick={() => ui.markAllRead()}>
-                        Mark all read
-                      </button>
-                    )}
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div className="notif-tabs" role="tablist" aria-label="Filter notifications">
+                        <button className={`notif-tab ${notifFilter==='all'?'active':''}`} role="tab" aria-selected={notifFilter==='all'} onClick={()=>setNotifFilter('all')}>All ({ui.notifications.length})</button>
+                        <button className={`notif-tab ${notifFilter==='unread'?'active':''}`} role="tab" aria-selected={notifFilter==='unread'} onClick={()=>setNotifFilter('unread')}>Unread ({ui.unread})</button>
+                      </div>
+                      {ui.unread > 0 && (
+                        <button className="btn" onClick={() => ui.markAllRead()}>
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="notif-list">
                     {ui.loadingNotifications ? (
@@ -98,12 +108,12 @@ export default function Navbar() {
                           <div className="skeleton-thumb"></div>
                         </div>
                       ))
-                    ) : ui.notifications.length === 0 ? (
+                    ) : (notifFilter==='unread' ? ui.notifications.filter(n=>!n.is_read) : ui.notifications).length === 0 ? (
                       <div className="muted" style={{ padding: '12px 0', textAlign: 'center' }}>
-                        No notifications
+                        No {notifFilter==='unread' ? 'unread ' : ''}notifications
                       </div>
                     ) : (
-                      ui.notifications.map((n) => (
+                      (notifFilter==='unread' ? ui.notifications.filter(n=>!n.is_read) : ui.notifications).map((n) => (
                         <NotifItem key={n.id} n={n} onRead={() => ui.markRead(n.id)} />
                       ))
                     )}
