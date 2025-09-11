@@ -59,8 +59,9 @@ export default function Navbar() {
         <div className={`auth ${open ? 'open' : ''}`}>
           {auth.user ? (
             <>
-              <button className="btn theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
-                {theme === 'dark' ? '☀️' : '🌙'}
+              <button className="theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
+                <span className="toggle-icon">☀️</span>
+                <span className="toggle-icon">🌙</span>
               </button>
               <button
                 className="bell"
@@ -84,8 +85,21 @@ export default function Navbar() {
                     )}
                   </div>
                   <div className="notif-list">
-                    {ui.notifications.length === 0 ? (
-                      <div className="muted" style={{ padding: '8px 0' }}>
+                    {ui.loadingNotifications ? (
+                      // Show skeleton loading
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="notif-skeleton">
+                          <div className="skeleton-avatar"></div>
+                          <div className="skeleton-content">
+                            <div className="skeleton-line medium"></div>
+                            <div className="skeleton-line short"></div>
+                            <div className="skeleton-line long"></div>
+                          </div>
+                          <div className="skeleton-thumb"></div>
+                        </div>
+                      ))
+                    ) : ui.notifications.length === 0 ? (
+                      <div className="muted" style={{ padding: '12px 0', textAlign: 'center' }}>
                         No notifications
                       </div>
                     ) : (
@@ -116,8 +130,9 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <button className="btn theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
-                {theme === 'dark' ? '☀️' : '🌙'}
+              <button className="theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
+                <span className="toggle-icon">☀️</span>
+                <span className="toggle-icon">🌙</span>
               </button>
               <Link className="btn" to="/login">
                 Login

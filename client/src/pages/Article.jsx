@@ -9,11 +9,13 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import rehypeHighlight from 'rehype-highlight'
 import Comments from '../components/Comments.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
+import ArticleSkeleton from '../components/ArticleSkeleton.jsx'
 
 export default function Article() {
   const { id, slug } = useParams()
   const { request, ui } = useAuth()
   const [article, setArticle] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [liked, setLiked] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -23,13 +25,17 @@ export default function Article() {
   const [toc, setToc] = useState([])
 
   useEffect(() => {
+    setLoading(true)
+    setArticle(null)
+    setError('')
+    
     const path = slug ? `/articles/slug/${slug}` : `/articles/${id}`
-    request(path)
+    request(path, { noGlobalLoading: true })
       .then((a) => {
         setArticle(a)
         const aid = a.id
-        request(`/likes/status/${aid}`).then((r) => setLiked(Boolean(r.liked))).catch(() => {})
-        request(`/bookmarks/status/${aid}`).then((r) => setSaved(Boolean(r.saved))).catch(() => {})
+        request(`/likes/status/${aid}`, { noGlobalLoading: true }).then((r) => setLiked(Boolean(r.liked))).catch(() => {})
+        request(`/bookmarks/status/${aid}`, { noGlobalLoading: true }).then((r) => setSaved(Boolean(r.saved))).catch(() => {})
         setRelatedLoading(true)
         request(`/articles/${aid}/related`, { noGlobalLoading: true })
           .then((r) => setRelated(Array.isArray(r) ? r : []))
@@ -37,6 +43,7 @@ export default function Article() {
           .finally(() => setRelatedLoading(false))
       })
       .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
   }, [id, slug])
 
   useEffect(() => {
@@ -107,7 +114,7 @@ export default function Article() {
   })
 
   if (error) return <div className="container page"><p className="error">{error}</p></div>
-  if (!article) return <div className="container page"><p>Loading...</p></div>
+  if (loading || !article) return <ArticleSkeleton />
 
   const like = async () => {
     try {
