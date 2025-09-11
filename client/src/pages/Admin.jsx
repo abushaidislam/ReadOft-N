@@ -14,73 +14,78 @@ export default function Admin() {
   const [catSlug, setCatSlug] = useState('')
   const [error, setError] = useState('')
   const [tab, setTab] = useState('dashboard')
+  const [loading, setLoading] = useState(true)
 
   const load = async () => {
+    setLoading(true)
     try {
       const [u, p, c, a, r] = await Promise.all([
-        request('/admin/users'),
-        request('/admin/articles/pending'),
-        request('/categories'),
-        request('/admin/author-requests'),
-        request('/admin/reports'),
+        request('/admin/users', { noGlobalLoading: true }),
+        request('/admin/articles/pending', { noGlobalLoading: true }),
+        request('/categories', { noGlobalLoading: true }),
+        request('/admin/author-requests', { noGlobalLoading: true }),
+        request('/admin/reports', { noGlobalLoading: true }),
       ])
       setUsers(u)
       setPending(p)
       setCategories(c)
       setApps(a)
       setReports(r)
+      setError('')
     } catch (e) {
       setError(e.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => { load().catch(console.error) }, [])
 
   const setRole = async (id, role) => {
-    await request(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) })
+    await request(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }), noGlobalLoading: true })
     ui.notify('Role updated', 'success')
     load()
   }
 
   const approve = async (id) => {
-    await request(`/articles/${id}/approve`, { method: 'POST' })
+    await request(`/articles/${id}/approve`, { method: 'POST', noGlobalLoading: true })
     ui.notify('Article approved', 'success')
     load()
   }
 
   const reject = async (id) => {
     const reason = prompt('Reason for rejection? (optional)') || ''
-    await request(`/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) })
+    await request(`/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }), noGlobalLoading: true })
     ui.notify('Article rejected', 'info')
     load()
   }
 
   const deleteArticle = async (id) => {
     if (!confirm('Delete this article? This cannot be undone.')) return
-    await request(`/articles/${id}`, { method: 'DELETE' })
+    await request(`/articles/${id}`, { method: 'DELETE', noGlobalLoading: true })
     ui.notify('Article deleted', 'success')
     load()
   }
 
   const addCategory = async () => {
     if (!catName.trim()) return
-    await request('/categories', { method: 'POST', body: JSON.stringify({ name: catName, slug: catSlug || undefined }) })
+    await request('/categories', { method: 'POST', body: JSON.stringify({ name: catName, slug: catSlug || undefined }), noGlobalLoading: true })
     ui.notify('Category added', 'success')
     setCatName(''); setCatSlug(''); load()
   }
   const updateCategory = async (id, patch) => {
-    await request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(patch) })
+    await request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(patch), noGlobalLoading: true })
     ui.notify('Category updated', 'success')
     load()
   }
   const deleteCategory = async (id) => {
-    await request(`/categories/${id}`, { method: 'DELETE' })
+    await request(`/categories/${id}`, { method: 'DELETE', noGlobalLoading: true })
     ui.notify('Category deleted', 'success')
     load()
   }
 
   const updateReport = async (id, patch) => {
-    await request(`/admin/reports/${id}`, { method: 'PUT', body: JSON.stringify(patch) })
+    await request(`/admin/reports/${id}`, { method: 'PUT', body: JSON.stringify(patch), noGlobalLoading: true })
     ui.notify('Report updated', 'success')
     load()
   }
@@ -125,8 +130,8 @@ export default function Admin() {
                       <option value="author">author</option>
                       <option value="admin">admin</option>
                     </select>
-                    <button className="btn" onClick={async()=>{ await request(`/admin/users/${u.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: !u.is_banned }) }); load() }}>{u.is_banned?'Unban':'Ban'}</button>
-                    <button className="btn" onClick={async()=>{ if (confirm('Delete user account? This cannot be undone.')) { await request(`/admin/users/${u.id}`, { method:'DELETE' }); load() } }}>Delete</button>
+                    <button className="btn" onClick={async()=>{ await request(`/admin/users/${u.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: !u.is_banned }), noGlobalLoading: true }); load() }}>{u.is_banned?'Unban':'Ban'}</button>
+                    <button className="btn" onClick={async()=>{ if (confirm('Delete user account? This cannot be undone.')) { await request(`/admin/users/${u.id}`, { method:'DELETE', noGlobalLoading: true }); load() } }}>Delete</button>
                   </td>
                 </tr>
               ))}
@@ -214,14 +219,61 @@ export default function Admin() {
               <td>{r.payload?.email || '-'}</td>
               <td>{new Date(r.created_at).toLocaleString()}</td>
               <td style={{display:'flex', gap:8}}>
-                <button className="btn btn-primary" onClick={async()=>{ await request(`/admin/author-requests/${r.id}/approve`, { method:'POST' }); load() }}>Approve</button>
-                <button className="btn" onClick={async()=>{ const reason = prompt('Reason? (optional)')||''; await request(`/admin/author-requests/${r.id}/reject`, { method:'POST', body: JSON.stringify({ reason }) }); load() }}>Reject</button>
+                <button className="btn btn-primary" onClick={async()=>{ await request(`/admin/author-requests/${r.id}/approve`, { method:'POST', noGlobalLoading: true }); load() }}>Approve</button>
+                <button className="btn" onClick={async()=>{ const reason = prompt('Reason? (optional)')||''; await request(`/admin/author-requests/${r.id}/reject`, { method:'POST', body: JSON.stringify({ reason }), noGlobalLoading: true }); load() }}>Reject</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
     </section>
+  )
+
+  // Skeletons
+  const TableSkeleton = ({ rows = 5, cols = 5 }) => (
+    <section className="section-card">
+      <div className="skeleton">
+        <div className="skeleton-line w-60" style={{ height: '20px', marginBottom: '12px' }} />
+        <div>
+          {Array.from({ length: rows }).map((_, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+              {Array.from({ length: cols }).map((__, j) => (
+                <div key={j} className="skeleton-line" />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+
+  const DashboardSkeleton = () => (
+    <div className="grid two">
+      <section className="section-card">
+        <div className="skeleton">
+          <div className="skeleton-line w-40" style={{ height: '20px', marginBottom: '12px' }} />
+          <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '12px' }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="stat">
+                <div className="skeleton-line w-60" style={{ height: '24px' }} />
+                <div className="skeleton-line w-40" style={{ height: '12px', marginTop: '8px' }} />
+                <div className="skeleton-line w-50" style={{ height: '10px', marginTop: '6px' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="section-card">
+        <div className="skeleton">
+          <div className="skeleton-line w-40" style={{ height: '20px', marginBottom: '12px' }} />
+          <div className="skeleton-row">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="skeleton-chip" />
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   )
 
   const ReportsView = () => (
@@ -277,13 +329,13 @@ export default function Admin() {
           </nav>
         </aside>
         <main className="admin-content">
-          {tab==='dashboard' && <DashboardView />}
+          {tab==='dashboard' && (loading ? <DashboardSkeleton /> : <DashboardView />)}
           {tab==='analytics' && <AdminAnalytics />}
-          {tab==='users' && <UsersView />}
-          {tab==='pending' && <PendingView />}
-          {tab==='categories' && <CategoriesView />}
-          {tab==='applications' && <ApplicationsView />}
-          {tab==='reports' && <ReportsView />}
+          {tab==='users' && (loading ? <TableSkeleton rows={6} cols={5} /> : <UsersView />)}
+          {tab==='pending' && (loading ? <TableSkeleton rows={4} cols={3} /> : <PendingView />)}
+          {tab==='categories' && (loading ? <TableSkeleton rows={5} cols={3} /> : <CategoriesView />)}
+          {tab==='applications' && (loading ? <TableSkeleton rows={5} cols={4} /> : <ApplicationsView />)}
+          {tab==='reports' && (loading ? <TableSkeleton rows={6} cols={6} /> : <ReportsView />)}
         </main>
       </div>
     </div>

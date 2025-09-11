@@ -14,6 +14,7 @@ export function AuthProvider({ children }) {
   const toastId = useRef(1)
   const [notifs, setNotifs] = useState([])
   const [unread, setUnread] = useState(0)
+  const [loadingNotifications, setLoadingNotifications] = useState(false)
   const esRef = useRef(null)
 
   useEffect(() => {
@@ -66,17 +67,22 @@ export function AuthProvider({ children }) {
   const logout = () => setAuth({ token: null, user: null })
 
   async function loadNotifications() {
+    setLoadingNotifications(true)
     try {
       const data = await request('/notifications', { noGlobalLoading: true })
       setNotifs(Array.isArray(data) ? data : [])
       setUnread((data || []).filter((n) => !n.is_read).length)
-    } catch {}
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('loadNotifications failed', e)
+    } finally {
+      setLoadingNotifications(false)
+    }
   }
   async function markAllRead() {
-    try { await request('/notifications/read-all', { method: 'POST' }); setNotifs((prev)=>prev.map(n=>({ ...n, is_read:true }))); setUnread(0) } catch {}
+    try { await request('/notifications/read-all', { method: 'POST' }); setNotifs((prev)=>prev.map(n=>({ ...n, is_read:true }))); setUnread(0) } catch (e) { if (import.meta.env.DEV) console.debug('markAllRead failed', e) }
   }
   async function markRead(id) {
-    try { await request(`/notifications/${id}/read`, { method: 'POST' }); setNotifs((prev)=>prev.map(n=>n.id===id?{...n,is_read:true}:n)); setUnread((c)=>Math.max(0,c-1)) } catch {}
+    try { await request(`/notifications/${id}/read`, { method: 'POST' }); setNotifs((prev)=>prev.map(n=>n.id===id?{...n,is_read:true}:n)); setUnread((c)=>Math.max(0,c-1)) } catch (e) { if (import.meta.env.DEV) console.debug('markRead failed', e) }
   }
 
   function startNotifStream() {
@@ -89,18 +95,22 @@ export function AuthProvider({ children }) {
           const n = JSON.parse(ev.data)
           setNotifs((prev) => [n, ...prev].slice(0, 100))
           if (!n.is_read) setUnread((c) => c + 1)
-        } catch {}
+        } catch (e) {
+          if (import.meta.env.DEV) console.debug('notif onmessage parse failed', e)
+        }
       }
       es.onerror = () => {
-        try { es.close() } catch {}
+        try { es.close() } catch (e) { if (import.meta.env.DEV) console.debug('es.close() failed', e) }
         esRef.current = null
         setTimeout(startNotifStream, 3000)
       }
       esRef.current = es
-    } catch {}
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('startNotifStream failed', e)
+    }
   }
   function stopNotifStream() {
-    try { esRef.current?.close() } catch {}
+    try { esRef.current?.close() } catch (e) { if (import.meta.env.DEV) console.debug('stopNotifStream close failed', e) }
     esRef.current = null
   }
 
@@ -120,7 +130,7 @@ export function AuthProvider({ children }) {
           setAuth({ token: auth.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
         }
       })
-      .catch(() => {})
+      .catch((e) => { if (import.meta.env.DEV) console.debug('silent /me refresh failed', e) })
     // run only when token changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.token])
@@ -136,7 +146,7 @@ export function AuthProvider({ children }) {
             setAuth({ token: auth.token, user: { id: me.id, email: me.email, name: me.name, role: me.role, avatar_url: me.avatar_url } })
           }
         })
-        .catch(() => {})
+        .catch((e) => { if (import.meta.env.DEV) console.debug('focus /me refresh failed', e) })
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
@@ -156,13 +166,14 @@ export function AuthProvider({ children }) {
       dismiss,
       notifications: notifs,
       unread,
+      loadingNotifications,
       loadNotifications,
       markAllRead,
       markRead,
       startNotifStream,
       stopNotifStream,
     }
-  }), [auth, busyCount, toasts, notifs, unread])
+  }), [auth, busyCount, toasts, notifs, unread, loadingNotifications])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
