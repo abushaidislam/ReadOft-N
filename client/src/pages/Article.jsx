@@ -536,6 +536,7 @@ export default function Article() {
     ],
     attributes: {
       ...(defaultSchema.attributes || {}),
+      a: [...(defaultSchema.attributes?.a || []), ['href'], ['target'], ['rel'], ['title']],
       code: [...(defaultSchema.attributes?.code || []), ['className']],
       pre: [...(defaultSchema.attributes?.pre || []), ['className']],
       h1: [...(defaultSchema.attributes?.h1 || []), ['id']],
@@ -620,6 +621,52 @@ export default function Article() {
   const CodeRenderer = ({ inline, className, children, ...props }) => {
     if (inline) return <code className={className} {...props}>{children}</code>
     return <CodeBlock className={className} {...props}>{children}</CodeBlock>
+  }
+  // Link renderer: open externals in new tab, add rel, and a class for styling
+  const LinkRenderer = ({ href = '', children, ...props }) => {
+    // Determine if external HTTP(S) link
+    let urlObj = null
+    try { urlObj = new URL(href, window.location.origin) } catch { /* ignore invalid URL */ }
+    const isHttp = !!urlObj && /^(http|https):$/i.test(urlObj.protocol)
+    const external = isHttp && (urlObj.origin !== window.location.origin)
+
+    // Bare URL detection: if the link text equals the href (with or without protocol)
+    const onlyChild = Array.isArray(children) && children.length === 1 ? children[0] : null
+    const childText = typeof onlyChild === 'string' ? onlyChild.trim() : ''
+    const norm = (s) => String(s || '').replace(/^https?:\/\//i, '').replace(/\/$/, '')
+    const isBare = !!childText && (norm(childText) === norm(href))
+
+    const rel = external ? 'noopener noreferrer nofollow ugc' : undefined
+    const target = external ? '_blank' : undefined
+    const cls = `md-link ${external ? 'ext' : ''}`.trim()
+
+    // ChatGPT-like display: domain emphasized, truncated path muted for bare URLs
+    let content = children
+    if (isBare && urlObj && isHttp) {
+      const domain = urlObj.host
+      let path = urlObj.pathname + (urlObj.search || '')
+      if (path === '/' || !path) path = ''
+      // Truncate long paths: keep last 1-2 segments
+      if (path.length > 28) {
+        const parts = urlObj.pathname.split('/').filter(Boolean)
+        const last = parts.slice(-2).join('/')
+        path = `/${parts.length > 2 ? '…/' : ''}${last}` + (urlObj.search ? '…' : '')
+      }
+      content = (
+        <>
+          <span className="md-link-domain">{domain}</span>
+          {path && <span className="md-link-path">{path}</span>}
+        </>
+      )
+    }
+
+    const titleAttr = props?.title || (urlObj && isHttp ? urlObj.href : undefined)
+    return (
+      <a href={href} rel={rel} target={target} className={cls} title={titleAttr} {...props}>
+        {content}
+        {external && <span aria-hidden="true" className="ext-icon" style={{ marginLeft: 4 }}>↗</span>}
+      </a>
+    )
   }
   // Reusable action bar (like, comments, follow, save, share, copy, offline, report)
   const ActionsBar = () => (
@@ -805,7 +852,7 @@ export default function Article() {
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkSlug, remarkMath]}
                     rehypePlugins={[rehypeKatex, [rehypeSanitize, mdSchema], rehypeHighlight]}
-                    components={{ code: CodeRenderer }}
+                    components={{ code: CodeRenderer, a: LinkRenderer }}
                   >
                     {summary}
                   </ReactMarkdown>
@@ -818,7 +865,7 @@ export default function Article() {
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkSlug, remarkMath]}
             rehypePlugins={[rehypeRaw, rehypeKatex, [rehypeSanitize, mdSchema], rehypeHighlight]}
-            components={{ code: CodeRenderer }}
+            components={{ code: CodeRenderer, a: LinkRenderer }}
           >
           {article.content || ''}
           </ReactMarkdown>
