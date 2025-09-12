@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
-import { LineChart, BarChart, DonutChart } from '../components/AnalyticsChart.jsx'
+import { LineChart, BarChart, DonutChart, MultiLineChart } from '../components/AnalyticsChart.jsx'
 
 export default function AdminAnalytics() {
   const { request } = useAuth()
@@ -244,14 +244,14 @@ export default function AdminAnalytics() {
                   Views
                 </span>
               </div>
-              <LineChart 
-                data={charts.dailyStats.map(d => ({ 
-                  value: d.users + d.articles + d.views, 
-                  label: new Date(d.date).getDate() 
-                }))}
-                width={400}
-                height={200}
-                color="#6366f1"
+              <MultiLineChart
+                series={[
+                  { name: 'Users', color: '#6366f1', data: charts.dailyStats.map(d => ({ value: d.users, label: new Date(d.date).getDate() })) },
+                  { name: 'Articles', color: '#10b981', data: charts.dailyStats.map(d => ({ value: d.articles, label: new Date(d.date).getDate() })) },
+                  { name: 'Views', color: '#f59e0b', data: charts.dailyStats.map(d => ({ value: d.views, label: new Date(d.date).getDate() })) },
+                ]}
+                width={500}
+                height={220}
               />
             </div>
           )}

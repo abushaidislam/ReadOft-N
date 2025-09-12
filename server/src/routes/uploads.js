@@ -105,7 +105,7 @@ router.post('/article-thumbnail', authRequired, requireRole(ROLES.AUTHOR, ROLES.
     const bucket = 'thumbnails'
     await ensureBucketPublic(bucket)
 
-    const ext = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg'
+    const ext = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : (file.mimetype === 'image/svg+xml' ? 'svg' : 'jpg')
     const path = `${req.user.id}/${randomUUID()}.${ext}`
 
     const { error: upErr } = await supabase.storage.from(bucket).upload(path, file.buffer, {
@@ -204,7 +204,7 @@ router.post('/article-media', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMI
   try {
     const file = req.file
     if (!file) return res.status(400).json({ message: 'No file uploaded' })
-    const allowed = ['image/jpeg', 'image/png', 'image/webp']
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
     if (!allowed.includes(file.mimetype)) return res.status(400).json({ message: 'Invalid file type' })
 
     const bucket = 'article-media'

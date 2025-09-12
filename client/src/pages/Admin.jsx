@@ -14,6 +14,8 @@ export default function Admin() {
   const [categories, setCategories] = useState([])
   const [apps, setApps] = useState([])
   const [reports, setReports] = useState([])
+  const [newsletter, setNewsletter] = useState([])
+  const [contacts, setContacts] = useState([])
   const [catStats, setCatStats] = useState({})
   const [kpi, setKpi] = useState(null)
   const [health, setHealth] = useState(null)
@@ -89,7 +91,7 @@ export default function Admin() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [u, p, c, a, r, cs, ov, h] = await Promise.all([
+      const [u, p, c, a, r, cs, ov, h, nl, cm] = await Promise.all([
         request('/admin/users', { noGlobalLoading: true }),
         request('/admin/articles/pending', { noGlobalLoading: true }),
         request('/categories', { noGlobalLoading: true }),
@@ -98,6 +100,8 @@ export default function Admin() {
         request('/admin/categories/stats', { noGlobalLoading: true }),
         request('/admin/analytics/overview', { noGlobalLoading: true }),
         request('/admin/health', { noGlobalLoading: true }),
+        request('/newsletter/list', { noGlobalLoading: true }),
+        request('/contact/list', { noGlobalLoading: true }),
       ])
       setUsers(u)
       setPending(p)
@@ -107,6 +111,8 @@ export default function Admin() {
       setCatStats(cs || {})
       setKpi(ov || null)
       setHealth(h || null)
+      setNewsletter(Array.isArray(nl) ? nl : [])
+      setContacts(Array.isArray(cm) ? cm : [])
       setError('')
     } catch (e) {
       setError(e.message)
@@ -441,6 +447,73 @@ export default function Admin() {
         </div>
       </section>
   )
+
+  const NewsletterView = () => {
+    const items = newsletter || []
+    return (
+      <section className="section-card">
+        <h3 style={{marginTop:0}}>Newsletter Subscribers</h3>
+        <div className="card-actions" style={{ justifyContent:'flex-end' }}>
+          <button className="btn" onClick={() => {
+            const headers = ['email','created_at']
+            const rows = items.map(n => [n.email||'', n.created_at||''])
+            const csv = [headers.join(','), ...rows.map(r=> r.map(x => '"'+String(x).replaceAll('"','""')+'"').join(','))].join('\n')
+            const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a'); a.href=url; a.download='newsletter_subscribers.csv'; a.click(); URL.revokeObjectURL(url)
+          }}>Export CSV</button>
+        </div>
+        <table className="table">
+          <thead><tr><th>Email</th><th>Subscribed</th></tr></thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr><td colSpan="2" className="muted">No subscribers yet</td></tr>
+            ) : items.map((n) => (
+              <tr key={n.id}>
+                <td>{n.email}</td>
+                <td>{n.created_at ? new Date(n.created_at).toLocaleString() : '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    )
+  }
+
+  const ContactView = () => {
+    const items = contacts || []
+    return (
+      <section className="section-card">
+        <h3 style={{marginTop:0}}>Contact Messages</h3>
+        <div className="card-actions" style={{ justifyContent:'space-between', alignItems:'center' }}>
+          <div className="muted" style={{ fontSize: '.9rem' }}>{items.length} messages</div>
+          <button className="btn" onClick={() => {
+            const headers = ['name','email','message','created_at']
+            const rows = items.map(m => [m.name||'', m.email||'', (m.message||'').replaceAll('\n',' '), m.created_at||''])
+            const csv = [headers.join(','), ...rows.map(r=> r.map(x => '"'+String(x).replaceAll('"','""')+'"').join(','))].join('\n')
+            const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a'); a.href=url; a.download='contact_messages.csv'; a.click(); URL.revokeObjectURL(url)
+          }}>Export CSV</button>
+        </div>
+        <table className="table">
+          <thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Received</th></tr></thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr><td colSpan="4" className="muted">No messages</td></tr>
+            ) : items.map((m) => (
+              <tr key={m.id}>
+                <td>{m.name}</td>
+                <td>{m.email}</td>
+                <td style={{maxWidth:480, whiteSpace:'pre-wrap'}}>{m.message}</td>
+                <td>{m.created_at ? new Date(m.created_at).toLocaleString() : '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    )
+  }
 
   const filteredPending = useMemo(() => {
     const q = pendingQuery.trim().toLowerCase()
@@ -884,6 +957,8 @@ export default function Admin() {
           <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
           <button className={`admin-link ${tab==='applications'?'active':''}`} onClick={()=>setTab('applications')}>Applications {apps.length?`(${apps.length})`:''}</button>
           <button className={`admin-link ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')}>Reports {reports.filter(r=>r.status==='open').length?`(${reports.filter(r=>r.status==='open').length})`:''}</button>
+          <button className={`admin-link ${tab==='newsletter'?'active':''}`} onClick={()=>setTab('newsletter')}>Newsletter</button>
+          <button className={`admin-link ${tab==='contact'?'active':''}`} onClick={()=>setTab('contact')}>Contact</button>
           <div className="muted" style={{ margin:'12px 4px 4px', fontSize:'.85rem' }}>Quick links</div>
           <Link className="admin-link" to="/editor">New Post</Link>
           <Link className="admin-link" to="/admin/library">Library</Link>
@@ -900,6 +975,8 @@ export default function Admin() {
           {tab==='categories' && (loading ? <TableSkeleton rows={5} cols={3} /> : <CategoriesView />)}
           {tab==='applications' && (loading ? <TableSkeleton rows={5} cols={4} /> : <ApplicationsView />)}
           {tab==='reports' && (loading ? <TableSkeleton rows={6} cols={6} /> : <ReportsView />)}
+          {tab==='newsletter' && (loading ? <TableSkeleton rows={5} cols={2} /> : <NewsletterView />)}
+          {tab==='contact' && (loading ? <TableSkeleton rows={6} cols={4} /> : <ContactView />)}
         </main>
         {userDrawerOpen && userDrawerUser && (
           <div className="drawer-overlay" onClick={closeUserDrawer} role="dialog" aria-modal="true">

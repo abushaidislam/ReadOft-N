@@ -5,8 +5,11 @@ import useMeta from '../utils/useMeta.js'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkSlug from 'remark-slug'
+import remarkMath from 'remark-math'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import rehypeHighlight from 'rehype-highlight'
+import rehypeKatex from 'rehype-katex'
+import rehypeRaw from 'rehype-raw'
 const Comments = lazy(() => import('../components/Comments.jsx'))
 import ArticleCard from '../components/ArticleCard.jsx'
 import ArticleSkeleton from '../components/ArticleSkeleton.jsx'
@@ -522,9 +525,15 @@ export default function Article() {
   const resumeTTS = () => { try { window.speechSynthesis.resume(); setIsPaused(false) } catch (e) { if (import.meta.env.DEV) console.debug('resume tts failed', e) } }
   const stopTTS = () => { try { window.speechSynthesis.cancel(); setIsSpeaking(false); setIsPaused(false); utterRef.current = null } catch (e) { if (import.meta.env.DEV) console.debug('stop tts failed', e) } }
 
-  // extend sanitize schema to keep ids and code classes
+  // extend sanitize schema to keep ids and code classes + allow Math and safe inline SVG
   const mdSchema = {
     ...defaultSchema,
+    // Allow KaTeX/MathML elements and safe SVG
+    tagNames: [
+      ...((defaultSchema.tagNames || [])),
+      'math','semantics','mrow','mi','mo','mn','msup','mfrac','msqrt','mroot','mtable','mtr','mtd','mspace','mstyle','annotation',
+      'svg','g','path','circle','rect','line','polyline','polygon','ellipse','defs','linearGradient','radialGradient','stop','title','desc','symbol','use','clipPath','mask','pattern','view'
+    ],
     attributes: {
       ...(defaultSchema.attributes || {}),
       code: [...(defaultSchema.attributes?.code || []), ['className']],
@@ -535,6 +544,26 @@ export default function Article() {
       h4: [...(defaultSchema.attributes?.h4 || []), ['id']],
       h5: [...(defaultSchema.attributes?.h5 || []), ['id']],
       h6: [...(defaultSchema.attributes?.h6 || []), ['id']],
+      span: [...(defaultSchema.attributes?.span || []), ['className'], ['style']],
+      math: [...(defaultSchema.attributes?.math || []), ['display']],
+      annotation: [...(defaultSchema.attributes?.annotation || []), ['encoding']],
+      mtable: [...(defaultSchema.attributes?.mtable || []), ['rowspacing','columnspacing','displaystyle']],
+      mtd: [...(defaultSchema.attributes?.mtd || []), ['columnalign']],
+      // Safe inline SVG attributes (no scripts/foreignObject)
+      svg: [...(defaultSchema.attributes?.svg || []), ['viewBox'], ['width'], ['height'], ['fill'], ['stroke'], ['stroke-width'], ['xmlns'], ['preserveAspectRatio'], ['aria-hidden'], ['focusable'], ['role'], ['version'], ['x'], ['y'], ['className'], ['style']],
+      g:   [...(defaultSchema.attributes?.g || []), ['transform'], ['fill'], ['stroke'], ['opacity'], ['clip-path']],
+      path:[...(defaultSchema.attributes?.path || []), ['d'], ['fill'], ['stroke'], ['stroke-width'], ['transform'], ['opacity'], ['fill-opacity'], ['stroke-linecap'], ['stroke-linejoin'], ['stroke-opacity'], ['clip-path']],
+      circle:[...(defaultSchema.attributes?.circle || []), ['cx'], ['cy'], ['r'], ['fill'], ['stroke'], ['stroke-width'], ['opacity']],
+      rect:[...(defaultSchema.attributes?.rect || []), ['x'], ['y'], ['width'], ['height'], ['rx'], ['ry'], ['fill'], ['stroke'], ['stroke-width'], ['opacity']],
+      line:[...(defaultSchema.attributes?.line || []), ['x1'], ['y1'], ['x2'], ['y2'], ['stroke'], ['stroke-width'], ['opacity']],
+      polyline:[...(defaultSchema.attributes?.polyline || []), ['points'], ['fill'], ['stroke'], ['stroke-width'], ['opacity']],
+      polygon:[...(defaultSchema.attributes?.polygon || []), ['points'], ['fill'], ['stroke'], ['stroke-width'], ['opacity']],
+      ellipse:[...(defaultSchema.attributes?.ellipse || []), ['cx'], ['cy'], ['rx'], ['ry'], ['fill'], ['stroke'], ['stroke-width'], ['opacity']],
+      linearGradient:[...(defaultSchema.attributes?.linearGradient || []), ['id'], ['x1'], ['y1'], ['x2'], ['y2'], ['gradientUnits']],
+      radialGradient:[...(defaultSchema.attributes?.radialGradient || []), ['id'], ['cx'], ['cy'], ['r'], ['fx'], ['fy'], ['gradientUnits']],
+      stop:[...(defaultSchema.attributes?.stop || []), ['offset'], ['stop-color'], ['stop-opacity']],
+      use:[...(defaultSchema.attributes?.use || []), ['href']],
+      clipPath:[...(defaultSchema.attributes?.clipPath || []), ['id']],
     },
   }
   const saveOffline = () => {
@@ -773,7 +802,11 @@ export default function Article() {
                 </div>
               ) : summary ? (
                 <div className="markdown">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeSanitize, mdSchema]]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkSlug, remarkMath]}
+                    rehypePlugins={[rehypeKatex, [rehypeSanitize, mdSchema], rehypeHighlight]}
+                    components={{ code: CodeRenderer }}
+                  >
                     {summary}
                   </ReactMarkdown>
                 </div>
@@ -782,7 +815,11 @@ export default function Article() {
               )}
             </div>
           )}
-          <ReactMarkdown remarkPlugins={[remarkGfm, remarkSlug]} rehypePlugins={[[rehypeSanitize, mdSchema], rehypeHighlight]} components={{ code: CodeRenderer }}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkSlug, remarkMath]}
+            rehypePlugins={[rehypeRaw, rehypeKatex, [rehypeSanitize, mdSchema], rehypeHighlight]}
+            components={{ code: CodeRenderer }}
+          >
           {article.content || ''}
           </ReactMarkdown>
         </div>

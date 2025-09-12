@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
+import remarkMath from 'remark-math'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+import rehypeKatex from 'rehype-katex'
 
 export default function Editor() {
   const { request, auth, ui } = useAuth()
@@ -419,6 +421,25 @@ export default function Editor() {
     setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = start; ta.selectionEnd = start + cleaned.length } }, 0)
   }
 
+  // Markdown sanitize schema extended to allow MathML/KaTeX output
+  const mdSchema = {
+    ...defaultSchema,
+    tagNames: [
+      ...((defaultSchema.tagNames || [])),
+      'math','semantics','mrow','mi','mo','mn','msup','mfrac','msqrt','mroot','mtable','mtr','mtd','mspace','mstyle','annotation'
+    ],
+    attributes: {
+      ...(defaultSchema.attributes || {}),
+      code: [...(defaultSchema.attributes?.code || []), ['className']],
+      pre: [...(defaultSchema.attributes?.pre || []), ['className']],
+      span: [...(defaultSchema.attributes?.span || []), ['className'], ['style']],
+      math: [...(defaultSchema.attributes?.math || []), ['display']],
+      annotation: [...(defaultSchema.attributes?.annotation || []), ['encoding']],
+      mtable: [...(defaultSchema.attributes?.mtable || []), ['rowspacing','columnspacing','displaystyle']],
+      mtd: [...(defaultSchema.attributes?.mtd || []), ['columnalign']],
+    },
+  }
+
   function handleKeydown(e) {
     if (e.ctrlKey || e.metaKey) {
       if (e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSelection('**','**'); return }
@@ -621,7 +642,10 @@ export default function Editor() {
           <h3 className="card-title">Live Preview</h3>
           <div className="markdown">
             {form.title && <h1>{form.title}</h1>}
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex, [rehypeSanitize, mdSchema]]}
+            >
               {form.content || ''}
             </ReactMarkdown>
           </div>

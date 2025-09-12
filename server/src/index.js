@@ -24,6 +24,7 @@ import aiRoutes from './routes/ai.js'
 import { startPublishScheduler } from './utils/scheduler.js'
 import newsletterRoutes from './routes/newsletter.js'
 import contactRoutes from './routes/contact.js'
+import pushRoutes from './routes/push.js'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -75,6 +76,7 @@ app.use('/api', reportsRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/newsletter', newsletterRoutes)
 app.use('/api/contact', contactRoutes)
+app.use('/api/push', pushRoutes)
 app.use('/', seoRoutes)
 
 app.use((err, _req, res, _next) => {

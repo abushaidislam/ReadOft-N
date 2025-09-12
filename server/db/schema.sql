@@ -209,3 +209,14 @@ create table if not exists contact_messages (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_contact_created on contact_messages(created_at desc);
+
+-- Web Push subscriptions (one user can have multiple devices)
+create table if not exists push_subscriptions (
+  id uuid primary key,
+  user_id uuid null references users(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_push_user on push_subscriptions(user_id, created_at desc);

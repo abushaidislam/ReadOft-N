@@ -17,22 +17,24 @@ router.post('/summarize', async (req, res) => {
     const maxTokens = level === 'short' ? 160 : level === 'long' ? 520 : 320
     const style = level === 'short'
       ? `Format:
-• One-sentence abstract.`
+• Start with a short abstract paragraph.
+• Then 3–5 bullet points of key takeaways.`
       : level === 'long'
         ? `Format:
-• One-sentence abstract.
-• 6–10 bullet points. Each bullet should start with a short bold key phrase then a concise explanation.
+• Start with a short abstract paragraph.
+• Then 6–10 bullet points, each beginning with a short bold key phrase, followed by a concise explanation.
 • If relevant, add an "Actionable steps:" sublist (3–5 bullets).`
         : `Format:
-• One-sentence abstract.
-• 4–6 bullet points. Each bullet should start with a short bold key phrase then a concise explanation.`
+• Start with a short abstract paragraph.
+• Then 4–6 bullet points, each beginning with a short bold key phrase, followed by a concise explanation.`
 
     const prompt = `You are a precise writing assistant.
 Summarize the article below in ${lang}.
 ${style}
 
 Rules:
-• Use plain markdown only (paragraphs and bullet lists). No headings (#), no links, no images, no code fences.
+• Output should be valid Markdown. Headings, bold/italic, lists, links, tables, and fenced code blocks are allowed when helpful.
+• Prefer concise, readable structure similar to ChatGPT-style answers.
 • Be faithful to the source and avoid repetition.
 • Keep it crisp and readable. Stay within the token budget.
 

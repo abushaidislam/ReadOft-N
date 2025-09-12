@@ -10,6 +10,11 @@ export async function notify(user_id, type, payload = {}) {
     if (error) console.error('notify insert error', error)
     // push SSE if connected
     pushOne(user_id, row)
+    // best-effort Web Push
+    try {
+      const msg = buildPushMessage(type, payload)
+      if (msg) await sendPushToUser(user_id, msg)
+    } catch (e) { /* silent */ }
   } catch (e) {
     console.error('notify error', e)
   }
@@ -52,6 +57,11 @@ export async function notifyFollowersOfArticle(author_id, article_id, title) {
     if (insErr) console.error('notify followers insert error', insErr)
     if (Array.isArray(inserted)) {
       for (const row of inserted) pushOne(row.user_id, row)
+      // best-effort Web Push broadcast
+      try {
+        const msg = buildPushMessage('new_post_by_followed_author', payloadBase)
+        await sendPushToUsers(followers, msg)
+      } catch (e) { /* silent */ }
     }
   } catch (e) {
     console.error('notifyFollowersOfArticle error', e)
@@ -103,4 +113,62 @@ export async function notifyAdminsOfPendingArticle(article_id) {
   } catch (e) {
     console.error('notifyAdminsOfPendingArticle error', e)
   }
+}
+
+// --- Web Push helpers ---
+function buildPushMessage(type, payload) {
+  try {
+    if (type === 'new_post_by_followed_author') {
+      const t = payload?.title || 'New post'
+      const by = payload?.author_name ? ` by ${payload.author_name}` : ''
+      return { title: `New post${by}`, body: t, url: `/article/${payload?.article_id}` }
+    }
+    if (type === 'comment_on_article') {
+      return { title: 'New comment', body: `${payload?.title ? payload.title + ': ' : ''}${(payload?.excerpt||'').slice(0,80)}`, url: `/article/${payload?.article_id}` }
+    }
+    if (type === 'reply_to_comment') {
+      return { title: 'New reply to your comment', body: (payload?.excerpt||'').slice(0,80), url: `/article/${payload?.article_id}` }
+    }
+    if (type === 'article_approved') {
+      return { title: 'Article approved', body: payload?.title || 'Your article was approved', url: `/article/${payload?.article_id}` }
+    }
+    if (type === 'article_rejected') {
+      return { title: 'Article rejected', body: payload?.reason ? `Reason: ${payload.reason}` : 'Please revise your article', url: `/dashboard` }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function sendPushToUser(user_id, msg) {
+  try {
+    let webPush
+    try { webPush = (await import('web-push')).default } catch (e) { return }
+    const pub = process.env.VAPID_PUBLIC_KEY
+    const priv = process.env.VAPID_PRIVATE_KEY
+    const sub = process.env.VAPID_SUBJECT || 'mailto:support@example.com'
+    if (!pub || !priv) return
+    webPush.setVapidDetails(sub, pub, priv)
+    const { data: subs, error } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint,p256dh,auth')
+      .eq('user_id', user_id)
+    if (error) return
+    const payload = JSON.stringify({ title: msg.title, body: msg.body, url: msg.url })
+    for (const s of subs || []) {
+      try {
+        await webPush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
+      } catch (e) {
+        // ignore per-subscription errors
+      }
+    }
+  } catch (e) {
+    // swallow errors
+  }
+}
+
+async function sendPushToUsers(user_ids, msg) {
+  if (!Array.isArray(user_ids) || user_ids.length === 0 || !msg) return
+  for (const uid of user_ids) await sendPushToUser(uid, msg)
 }

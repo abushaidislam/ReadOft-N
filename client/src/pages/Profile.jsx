@@ -18,6 +18,68 @@ export default function Profile() {
   const fileRef = useRef(null)
   const [tab, setTab] = useState('overview')
   const [applyStatus, setApplyStatus] = useState(null)
+  // Push notifications state
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushPermission, setPushPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+
+  // Helpers for Web Push
+  function base64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i)
+    return outputArray
+  }
+
+  async function enablePush() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('Push not supported in this browser')
+        return
+      }
+      let perm = typeof Notification !== 'undefined' ? Notification.permission : 'default'
+      if (perm === 'default') {
+        perm = await Notification.requestPermission()
+        setPushPermission(perm)
+      }
+      if (perm !== 'granted') {
+        alert('Please allow notifications to enable push')
+        return
+      }
+      const reg = await navigator.serviceWorker.ready
+      // Get VAPID public key from server
+      let keyResp
+      try { keyResp = await request('/push/public-key', { noGlobalLoading: true }) } catch (err) { if (import.meta.env.DEV) console.debug('public-key fetch failed', err); keyResp = null }
+      const publicKey = keyResp?.publicKey
+      if (!publicKey) { alert('Push keys not configured on server'); return }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64ToUint8Array(publicKey)
+      })
+      const payload = sub?.toJSON ? sub.toJSON() : sub
+      await request('/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: payload }), noGlobalLoading: true })
+      setPushEnabled(true)
+      alert('Push enabled')
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('enablePush failed', e)
+      alert(e?.message || 'Failed to enable push')
+    }
+  }
+
+  async function disablePush() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (!sub) { setPushEnabled(false); return }
+      const endpoint = sub.endpoint
+      try { await request('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }), noGlobalLoading: true }) } catch (err) { if (import.meta.env.DEV) console.debug('server unsubscribe notify failed', err) }
+      await sub.unsubscribe()
+      setPushEnabled(false)
+      alert('Push disabled')
+    } catch (e) { if (import.meta.env.DEV) console.debug('disablePush failed', e) }
+  }
 
   useEffect(() => {
     request('/me').then((m)=>{ setMe(m); setName(m.name||''); setBio(m.bio||'') }).catch(console.error)
@@ -29,7 +91,18 @@ export default function Profile() {
       request('/follows/followers/me').then(setFollowers).catch(()=>{})
     }
     request('/me/apply-author/status', { noGlobalLoading: true }).then(setApplyStatus).catch(()=>{})
-  }, [])
+    // check push subscription status
+    ;(async () => {
+      try {
+        setPushPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          const reg = await navigator.serviceWorker.ready
+          const sub = await reg.pushManager.getSubscription()
+          setPushEnabled(!!sub)
+        }
+      } catch (e) { if (import.meta.env.DEV) console.debug('push status check failed', e) }
+    })()
+  }, [request, auth.user?.role])
 
   const analytics = useMemo(() => computeAnalytics(reads), [reads])
 
@@ -84,7 +157,7 @@ export default function Profile() {
             <p className="muted">Submit an application to publish posts. An admin will review your request.</p>
             <div style={{display:'flex', gap:8}}>
               <button className="btn btn-primary" onClick={async()=>{
-                try { await request('/me/apply-author', { method: 'POST' }); alert('Application submitted. You will be notified.'); setApplyStatus({ requestedAt: new Date().toISOString() }) } catch{}
+                try { await request('/me/apply-author', { method: 'POST' }); alert('Application submitted. You will be notified.'); setApplyStatus({ requestedAt: new Date().toISOString() }) } catch(e){ if (import.meta.env.DEV) console.debug('apply-author failed', e) }
               }}>Apply for author</button>
               {applyStatus?.requestedAt && <span className="muted">Requested: {new Date(applyStatus.requestedAt).toLocaleString()}</span>}
             </div>
@@ -243,6 +316,20 @@ export default function Profile() {
               }}>Update Password</button>
             </div>
           </div>
+        </section>
+
+        <section className="section-card">
+          <h3 style={{marginTop:0}}>Notifications</h3>
+          <div className="muted" style={{ marginBottom: 8 }}>Enable web push notifications for new posts and updates.</div>
+          <div className="chips" style={{ marginBottom: 8 }}>
+            <span className="chip">Permission: {pushPermission}</span>
+            <span className="chip">Status: {pushEnabled ? 'Enabled' : 'Disabled'}</span>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button className="btn btn-primary" onClick={enablePush} disabled={pushEnabled}>Enable</button>
+            <button className="btn" onClick={disablePush} disabled={!pushEnabled}>Disable</button>
+          </div>
+          <div className="muted" style={{ fontSize: '.85rem', marginTop: 8 }}>Note: Requires browser support and permission. iOS may require Add to Home Screen for full support.</div>
         </section>
       </div>
       )}

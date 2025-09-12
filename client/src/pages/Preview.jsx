@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkSlug from 'remark-slug'
+import remarkMath from 'remark-math'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import rehypeHighlight from 'rehype-highlight'
+import rehypeKatex from 'rehype-katex'
 
 export default function Preview() {
   const { token } = useParams()
@@ -21,6 +23,10 @@ export default function Preview() {
 
   const mdSchema = {
     ...defaultSchema,
+    tagNames: [
+      ...((defaultSchema.tagNames || [])),
+      'math','semantics','mrow','mi','mo','mn','msup','mfrac','msqrt','mroot','mtable','mtr','mtd','mspace','mstyle','annotation'
+    ],
     attributes: {
       ...(defaultSchema.attributes || {}),
       code: [...(defaultSchema.attributes?.code || []), ['className']],
@@ -31,6 +37,11 @@ export default function Preview() {
       h4: [...(defaultSchema.attributes?.h4 || []), ['id']],
       h5: [...(defaultSchema.attributes?.h5 || []), ['id']],
       h6: [...(defaultSchema.attributes?.h6 || []), ['id']],
+      span: [...(defaultSchema.attributes?.span || []), ['className'], ['style']],
+      math: [...(defaultSchema.attributes?.math || []), ['display']],
+      annotation: [...(defaultSchema.attributes?.annotation || []), ['encoding']],
+      mtable: [...(defaultSchema.attributes?.mtable || []), ['rowspacing','columnspacing','displaystyle']],
+      mtd: [...(defaultSchema.attributes?.mtd || []), ['columnalign']],
     },
   }
 
@@ -45,7 +56,10 @@ export default function Preview() {
       <h1>{article.title}</h1>
       <p className="muted">Draft preview — not publicly visible</p>
       <div className="markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm, remarkSlug]} rehypePlugins={[[rehypeSanitize, mdSchema], rehypeHighlight]}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkSlug, remarkMath]}
+          rehypePlugins={[rehypeKatex, [rehypeSanitize, mdSchema], rehypeHighlight]}
+        >
           {article.content || ''}
         </ReactMarkdown>
       </div>
