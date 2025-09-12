@@ -78,7 +78,7 @@ export default function ArticleCard({ article, index = 0 }) {
       <h3 className="card-title">
         <Link to={article.slug ? `/a/${article.slug}` : `/article/${article.id}`}>{article.title}</Link>
       </h3>
-      <p className="muted">{created} • {readingTime} min read • {likeCount} likes</p>
+      <p className="muted">{created} • {readingTime} min read • {likeCount} likes • {(article.views_count ?? 0)} reads</p>
       <p className="line-clamp">{excerpt}{excerpt.length >= 160 ? '…' : ''}</p>
       <div className="card-actions">
         <button className={`icon-btn ${liked ? 'active' : ''}`} onClick={like} disabled={busy || liked}>

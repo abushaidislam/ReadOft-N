@@ -671,7 +671,7 @@ export default function Article() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1>{article.title}</h1>
-          <div className="muted">{readingMinutes} min read</div>
+          <div className="muted">{readingMinutes} min read • {(article.views_count ?? 0)} reads</div>
           <div className="author-chip" style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:6 }}>
             {article.author?.avatar_url ? (
               <img src={article.author.avatar_url} alt="author avatar" className="avatar" loading="lazy" decoding="async" style={{ width:28, height:28 }} />

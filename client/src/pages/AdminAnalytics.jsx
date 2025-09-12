@@ -11,6 +11,12 @@ export default function AdminAnalytics() {
   const [error, setError] = useState('')
   const [_refreshInterval, setRefreshInterval] = useState(null)
 
+  // Advanced analytics data
+  const [advPeriod, setAdvPeriod] = useState('month') // 'week' | 'month' | 'all'
+  const [advTopArticles, setAdvTopArticles] = useState([])
+  const [advTopAuthors, setAdvTopAuthors] = useState([])
+  const [advZeroViews, setAdvZeroViews] = useState([])
+
   const loadData = useCallback(async () => {
     try {
       const [overviewData, chartsData, realtimeData] = await Promise.all([
@@ -42,6 +48,25 @@ export default function AdminAnalytics() {
       if (interval) clearInterval(interval)
     }
   }, [loadData])
+
+  // Load advanced analytics blocks
+  const loadAdvanced = useCallback(async () => {
+    try {
+      const qs = `?period=${encodeURIComponent(advPeriod)}`
+      const [ta, tu, zv] = await Promise.all([
+        request(`/admin/analytics/top-articles${qs}`, { noGlobalLoading: true }).catch(() => []),
+        request(`/admin/analytics/top-authors${qs}`, { noGlobalLoading: true }).catch(() => []),
+        request(`/admin/analytics/zero-views${qs}`, { noGlobalLoading: true }).catch(() => []),
+      ])
+      setAdvTopArticles(Array.isArray(ta) ? ta : [])
+      setAdvTopAuthors(Array.isArray(tu) ? tu : [])
+      setAdvZeroViews(Array.isArray(zv) ? zv : [])
+    } catch (e) {
+      // keep silent, sections will show empty states
+    }
+  }, [request, advPeriod])
+
+  useEffect(() => { loadAdvanced().catch(console.error) }, [loadAdvanced])
 
   const formatNumber = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
@@ -267,6 +292,92 @@ export default function AdminAnalytics() {
           )}
         </section>
       </div>
+
+      {/* Advanced: Period-based rankings */}
+      <section className="section-card" style={{ marginBottom: '24px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <h3 style={{ marginTop: 0 }}>Top Articles by Views (Period)</h3>
+          <div className="chips">
+            {['week','month','all'].map(p => (
+              <button key={p} className="chip" onClick={() => setAdvPeriod(p)} style={advPeriod===p ? { background:'rgba(99,102,241,.15)', borderColor:'#6366f1' } : undefined}>
+                {p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'All Time'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="media-list">
+          {(advTopArticles||[]).slice(0, 10).map((article, index) => (
+            <div key={article.id} className="media-item">
+              <div style={{ 
+                width: '24px', height: '24px', background: '#6366f1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.8rem', fontWeight: 'bold'
+              }}>{index + 1}</div>
+              <div className="media-body">
+                <div style={{ fontWeight: 500 }}>{article.title}</div>
+                <div className="muted" style={{ fontSize: '.85rem' }}>by {article.author?.name || 'Unknown'} • {formatNumber(article.views_count)} views</div>
+              </div>
+            </div>
+          ))}
+          {(!advTopArticles || advTopArticles.length === 0) && <div className="muted" style={{ fontSize: '.9rem' }}>No data</div>}
+        </div>
+      </section>
+
+      <div className="grid two" style={{ gap: '24px', marginBottom: '24px' }}>
+        {/* Advanced: Top Authors by Views (Period) */}
+        <section className="section-card">
+          <h3 style={{ marginTop: 0 }}>Top Authors by Views ({advPeriod === 'week' ? 'This Week' : advPeriod === 'month' ? 'This Month' : 'All Time'})</h3>
+          <div className="media-list">
+            {(advTopAuthors||[]).slice(0, 10).map((u, i) => (
+              <div key={u.id} className="media-item">
+                {u.avatar_url ? (
+                  <img className="avatar" src={u.avatar_url} alt={u.name} />
+                ) : (
+                  <div className="avatar-fallback" style={{ width:32, height:32 }}>{(u.name||'A').slice(0,1).toUpperCase()}</div>
+                )}
+                <div className="media-body">
+                  <div style={{ fontWeight: 500 }}>{u.name}</div>
+                  <div className="muted" style={{ fontSize: '.85rem' }}>{formatNumber(u.views_count)} views</div>
+                </div>
+              </div>
+            ))}
+            {(!advTopAuthors || advTopAuthors.length === 0) && <div className="muted" style={{ fontSize: '.9rem' }}>No data</div>}
+          </div>
+        </section>
+
+        {/* Advanced: Zero-View Articles (Period) */}
+        <section className="section-card">
+          <h3 style={{ marginTop: 0 }}>Zero-View Articles ({advPeriod === 'week' ? 'This Week' : advPeriod === 'month' ? 'This Month' : 'All Time'})</h3>
+          <div className="media-list">
+            {(advZeroViews||[]).slice(0, 8).map((a) => (
+              <div key={a.id} className="media-item">
+                <div className="avatar-fallback" style={{ width: 24, height: 24 }}>{(a.author?.name || 'A').slice(0,1).toUpperCase()}</div>
+                <div className="media-body">
+                  <div style={{ fontWeight: 500 }}>{a.title}</div>
+                  <div className="muted" style={{ fontSize: '.85rem' }}>by {a.author?.name || 'Unknown'} • {new Date(a.created_at).toLocaleDateString()}</div>
+                </div>
+              </div>
+            ))}
+            {(!advZeroViews || advZeroViews.length === 0) && <div className="muted" style={{ fontSize: '.9rem' }}>Great! No zero-view articles.</div>}
+          </div>
+        </section>
+      </div>
+
+      {/* Views-only trend (Last 30 Days) */}
+      <section className="section-card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ marginTop: 0 }}>Views Trend (Last 30 Days)</h3>
+        {charts?.dailyStats && (
+          <div style={{ marginBottom: '16px' }}>
+            <LineChart 
+              data={charts.dailyStats.map(d => ({ 
+                value: d.views,
+                label: new Date(d.date).getDate()
+              }))}
+              width={400}
+              height={200}
+              color="#f59e0b"
+            />
+          </div>
+        )}
+      </section>
 
       <div className="grid two" style={{ gap: '24px', marginBottom: '24px' }}>
         {/* Top Articles */}

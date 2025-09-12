@@ -21,6 +21,121 @@ router.get('/users', authRequired, requireRole(ROLES.ADMIN), async (_req, res) =
   }
 })
 
+// Advanced analytics: top articles by views within a period
+router.get('/analytics/top-articles', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const period = String(req.query.period || 'month') // 'week' | 'month' | 'all'
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10))
+    let since = null
+    if (period === 'week') since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    else if (period === 'month') since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    // fetch article_views in window
+    let vq = supabase.from('article_views').select('article_id, created_at')
+    if (since) vq = vq.gte('created_at', since.toISOString())
+    const { data: views, error: vErr } = await vq
+    if (vErr) throw vErr
+    const counts = {}
+    for (const v of views || []) {
+      if (!v.article_id) continue
+      counts[v.article_id] = (counts[v.article_id] || 0) + 1
+    }
+    const ids = Object.keys(counts)
+    let arts = []
+    if (ids.length) {
+      const { data: rows } = await supabase
+        .from('articles')
+        .select('id, title, slug, author_id, status')
+        .in('id', ids)
+        .eq('status', 'published')
+      arts = rows || []
+    }
+    // map author names
+    const aIds = Array.from(new Set(arts.map(a => a.author_id).filter(Boolean)))
+    let authorMap = {}
+    if (aIds.length) {
+      const { data: users } = await supabase.from('users').select('id, name').in('id', aIds)
+      authorMap = Object.fromEntries((users || []).map(u => [u.id, u.name]))
+    }
+    const joined = arts.map(a => ({ id: a.id, title: a.title, slug: a.slug, author: { name: authorMap[a.author_id] || 'Unknown' }, views_count: counts[a.id] || 0 }))
+    joined.sort((x, y) => y.views_count - x.views_count)
+    res.json(joined.slice(0, limit))
+  } catch (e) {
+    console.error('analytics top-articles error', e)
+    res.status(500).json({ message: 'Failed to load top articles' })
+  }
+})
+
+// Advanced analytics: top authors by views within a period
+router.get('/analytics/top-authors', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const period = String(req.query.period || 'month')
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10))
+    let since = null
+    if (period === 'week') since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    else if (period === 'month') since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    // pull views in window
+    let vq = supabase.from('article_views').select('article_id, created_at')
+    if (since) vq = vq.gte('created_at', since.toISOString())
+    const { data: views, error: vErr } = await vq
+    if (vErr) throw vErr
+    const articleIds = Array.from(new Set((views || []).map(v => v.article_id).filter(Boolean)))
+    // load author for those articles
+    let authorByArticle = {}
+    if (articleIds.length) {
+      const { data: arts } = await supabase.from('articles').select('id, author_id, status').in('id', articleIds).eq('status', 'published')
+      for (const a of arts || []) authorByArticle[a.id] = a.author_id
+    }
+    const authorCounts = {}
+    for (const v of views || []) {
+      const aid = authorByArticle[v.article_id]
+      if (!aid) continue
+      authorCounts[aid] = (authorCounts[aid] || 0) + 1
+    }
+    const authorIds = Object.keys(authorCounts)
+    let authors = []
+    if (authorIds.length) {
+      const { data: rows } = await supabase.from('users').select('id, name, avatar_url').in('id', authorIds)
+      authors = rows || []
+    }
+    const items = authors.map(u => ({ id: u.id, name: u.name, avatar_url: u.avatar_url, views_count: authorCounts[u.id] || 0 }))
+    items.sort((a, b) => b.views_count - a.views_count)
+    res.json(items.slice(0, limit))
+  } catch (e) {
+    console.error('analytics top-authors error', e)
+    res.status(500).json({ message: 'Failed to load top authors' })
+  }
+})
+
+// Advanced analytics: zero-view articles in a period
+router.get('/analytics/zero-views', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const period = String(req.query.period || 'month')
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20))
+    let since = null
+    if (period === 'week') since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    else if (period === 'month') since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    // views in window
+    let vq = supabase.from('article_views').select('article_id')
+    if (since) vq = vq.gte('created_at', since.toISOString())
+    const { data: views } = await vq
+    const seen = new Set((views || []).map(v => v.article_id).filter(Boolean))
+    // fetch recent published articles (cap to 500 to avoid heavy response)
+    let aq = supabase
+      .from('articles')
+      .select('id, title, slug, created_at, author:users!articles_author_id_fkey(name)')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(500)
+    if (since) aq = aq.gte('created_at', since.toISOString())
+    const { data: arts, error: aErr } = await aq
+    if (aErr) throw aErr
+    const zero = (arts || []).filter(a => !seen.has(a.id)).slice(0, limit)
+    res.json(zero)
+  } catch (e) {
+    console.error('analytics zero-views error', e)
+    res.status(500).json({ message: 'Failed to load zero-views' })
+  }
+})
 // Verify/unverify user (for author badges)
 router.put('/users/:id/verify', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
   try {

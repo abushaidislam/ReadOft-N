@@ -71,7 +71,23 @@ router.get('/', authOptional, async (req, res) => {
       const words = sanitize(txt).trim().split(/\s+/).filter(Boolean).length
       return Math.max(1, Math.round(words / 200))
     }
-    const itemsWith = (data || []).map((a) => ({ ...a, reading_time: calcRead(a.content) }))
+    // Compute views_count for the current page (simple per-id counts; page limited to 12)
+    const ids = (data || []).map(a => a.id).filter(Boolean)
+    const viewCounts = {}
+    if (ids.length) {
+      await Promise.all(ids.map(async (aid) => {
+        try {
+          const { count: c } = await supabase
+            .from('article_views')
+            .select('id', { count: 'exact', head: true })
+            .eq('article_id', aid)
+          viewCounts[aid] = c || 0
+        } catch {
+          viewCounts[aid] = 0
+        }
+      }))
+    }
+    const itemsWith = (data || []).map((a) => ({ ...a, reading_time: calcRead(a.content), views_count: viewCounts[a.id] || 0 }))
     res.json({
       items: itemsWith,
       pageInfo: { page, pageSize: limit, total, totalPages, sort: sortParam },
@@ -159,7 +175,15 @@ router.get('/:id', authOptional, async (req, res) => {
     const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
     const words = sanitize(article.content).trim().split(/\s+/).filter(Boolean).length
     const reading_time = Math.max(1, Math.round(words / 200))
-    res.json({ ...article, reading_time })
+    let views_count = 0
+    try {
+      const { count: c } = await supabase
+        .from('article_views')
+        .select('id', { count: 'exact', head: true })
+        .eq('article_id', id)
+      views_count = c || 0
+    } catch {}
+    res.json({ ...article, reading_time, views_count })
   } catch (e) {
     console.error(e)
     res.status(500).json({ message: 'Failed to fetch article' })
@@ -414,7 +438,15 @@ router.get('/slug/:slug', authOptional, async (req, res) => {
     const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
     const words = sanitize(article.content).trim().split(/\s+/).filter(Boolean).length
     const reading_time = Math.max(1, Math.round(words / 200))
-    res.json({ ...article, reading_time })
+    let views_count = 0
+    try {
+      const { count: c } = await supabase
+        .from('article_views')
+        .select('id', { count: 'exact', head: true })
+        .eq('article_id', article.id)
+      views_count = c || 0
+    } catch {}
+    res.json({ ...article, reading_time, views_count })
   } catch (e) {
     res.status(500).json({ message: 'Failed to fetch by slug' })
   }
