@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 export default function Subnav() {
   const loc = useLocation()
   const nav = useNavigate()
-  const show = loc.pathname !== '/'
+  const isAdmin = loc.pathname.startsWith('/admin')
+  const show = loc.pathname !== '/' && !isAdmin
   const [hidden, setHidden] = useState(false)
   const lastY = useRef(typeof window !== 'undefined' ? window.scrollY : 0)
   const lastTick = useRef(0)
@@ -41,7 +42,7 @@ export default function Subnav() {
     path += '/' + parts[i]
     const p = parts[i]
     const base = p.toLowerCase()
-    const label = labelFor(base, parts[i + 1])
+    const label = labelFor(base)
     items.push({ label, to: path })
   }
 
@@ -52,7 +53,7 @@ export default function Subnav() {
       if (toc) { toc.scrollIntoView({ behavior: 'smooth', block: 'start' }); return }
       const first = document.querySelector('.markdown h2, .markdown h3')
       if (first) first.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    } catch {}
+    } catch (e) { if (import.meta.env.DEV) console.debug('goTOC failed', e) }
   }
 
   if (!show) return null
@@ -88,7 +89,7 @@ export default function Subnav() {
   )
 }
 
-function labelFor(base, next) {
+function labelFor(base) {
   if (base === 'a' || base === 'article') return 'Article'
   if (base === 'category') return 'Category'
   if (base === 'author') return 'Author'
@@ -102,6 +103,6 @@ function labelFor(base, next) {
     const s = decodeURIComponent(base)
     if (/^[a-f0-9-]{8,}$/.test(s)) return s.slice(0,8) + '…'
     return s.replace(/[-_]/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
-  } catch { return base }
+  } catch (e) { if (import.meta.env.DEV) console.debug('labelFor failed', e); return base }
 }
 

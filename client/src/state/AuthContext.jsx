@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 const AuthContext = createContext(null)
 
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
     setToasts((t) => t.filter((x) => x.id !== id))
   }
 
-  async function request(path, options = {}) {
+  const request = useCallback(async (path, options = {}) => {
     const noGlobalLoading = options.noGlobalLoading === true
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) }
     if (auth.token) headers.Authorization = `Bearer ${auth.token}`
@@ -50,7 +50,7 @@ export function AuthProvider({ children }) {
     } finally {
       if (!noGlobalLoading) setBusyCount((c) => Math.max(0, c - 1))
     }
-  }
+  }, [auth.token, apiBase])
 
   const login = async (email, password) => {
     const data = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
@@ -173,7 +173,7 @@ export function AuthProvider({ children }) {
       startNotifStream,
       stopNotifStream,
     }
-  }), [auth, busyCount, toasts, notifs, unread, loadingNotifications])
+  }), [auth, busyCount, toasts, notifs, unread, loadingNotifications, request])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

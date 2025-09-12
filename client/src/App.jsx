@@ -16,6 +16,7 @@ import Profile from './pages/Profile'
 import Article from './pages/Article'
 import Admin from './pages/Admin'
 import AdminCategories from './pages/AdminCategories.jsx'
+import AdminLibrary from './pages/AdminLibrary.jsx'
 import ProtectedRoute from './routes/ProtectedRoute'
 import Feed from './pages/Feed'
 import Author from './pages/Author'
@@ -73,6 +74,7 @@ function App() {
         <Route element={<ProtectedRoute roles={["admin"]} />}> 
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/categories" element={<AdminCategories />} />
+          <Route path="/admin/library" element={<AdminLibrary />} />
         </Route>
       </Routes>
       <Footer />

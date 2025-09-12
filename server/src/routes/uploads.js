@@ -8,6 +8,67 @@ import { randomUUID } from 'node:crypto'
 const router = express.Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
+// List existing videos (if bucket is present)
+router.get('/videos', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (req, res) => {
+  try {
+    const bucket = 'videos'
+    await ensureBucketPublic(bucket)
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '60', 10)))
+    const prefix = String(req.user.id || '').trim()
+    const { data: files, error } = await supabase.storage.from(bucket).list(prefix, {
+      limit,
+      offset: 0,
+      sortBy: { column: 'name', order: 'desc' },
+    })
+    if (error) throw error
+    const items = (files || [])
+      .filter(f => f && f.name && !f.name.endsWith('/'))
+      .map((f) => {
+        const path = `${prefix}/${f.name}`
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path)
+        return { name: f.name, path, url: pub.publicUrl, updated_at: f.updated_at || null, created_at: f.created_at || null, size: f.metadata?.size || null }
+      })
+    res.json({ items })
+  } catch (e) {
+    console.error('List videos error:', e)
+    res.status(500).json({ message: e?.message || 'Failed to list videos' })
+  }
+})
+
+// Delete a file from a bucket
+router.post('/delete', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (req, res) => {
+  try {
+    const { bucket, path } = req.body || {}
+    const allowed = ['article-media', 'thumbnails', 'videos']
+    if (!allowed.includes(bucket)) return res.status(400).json({ message: 'Invalid bucket' })
+    if (!path || typeof path !== 'string') return res.status(400).json({ message: 'Missing path' })
+    const { error } = await supabase.storage.from(bucket).remove([path])
+    if (error) throw error
+    res.json({ success: true })
+  } catch (e) {
+    console.error('Delete file error:', e)
+    res.status(500).json({ message: e?.message || 'Delete failed' })
+  }
+})
+
+// Rename (move) a file within the same bucket and folder
+router.post('/rename', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (req, res) => {
+  try {
+    const { bucket, path, newName } = req.body || {}
+    const allowed = ['article-media', 'thumbnails', 'videos']
+    if (!allowed.includes(bucket)) return res.status(400).json({ message: 'Invalid bucket' })
+    if (!path || typeof path !== 'string' || !newName) return res.status(400).json({ message: 'Missing path/newName' })
+    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''
+    const to = dir ? `${dir}/${newName}` : newName
+    const { error } = await supabase.storage.from(bucket).move(path, to)
+    if (error) throw error
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(to)
+    res.json({ success: true, path: to, url: pub.publicUrl })
+  } catch (e) {
+    console.error('Rename file error:', e)
+    res.status(500).json({ message: e?.message || 'Rename failed' })
+  }
+})
 async function ensureBucketPublic(name) {
   // Try to get; if not found or error, attempt to create. Ignore "already exists".
   const { data, error } = await supabase.storage.getBucket(name)
@@ -18,7 +79,6 @@ async function ensureBucketPublic(name) {
         await supabase.storage.updateBucket(name, {
           public: true,
           fileSizeLimit: 5 * 1024 * 1024,
-          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
         })
       } catch (e) {
         // best-effort; continue
@@ -29,7 +89,6 @@ async function ensureBucketPublic(name) {
   const { error: createErr } = await supabase.storage.createBucket(name, {
     public: true,
     fileSizeLimit: 5 * 1024 * 1024, // ~5MB
-    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
   })
   if (createErr && !/already exists|exists/i.test(createErr.message || '')) {
     throw createErr

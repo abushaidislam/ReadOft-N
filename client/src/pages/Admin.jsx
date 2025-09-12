@@ -869,19 +869,20 @@ export default function Admin() {
       <div className="admin-layout">
         <aside className="admin-sidebar">
         <nav className="admin-nav" aria-label="Admin sections">
-            <button className={`admin-link ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>Dashboard</button>
-            <button className={`admin-link ${tab==='analytics'?'active':''}`} onClick={()=>setTab('analytics')}>Analytics</button>
-            <button className={`admin-link ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>Users</button>
-            <button className={`admin-link ${tab==='pending'?'active':''}`} onClick={()=>setTab('pending')}>Pending Posts {pending.length?`(${pending.length})`:''}</button>
-            <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
+          <button className={`admin-link ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>Dashboard</button>
+          <button className={`admin-link ${tab==='analytics'?'active':''}`} onClick={()=>setTab('analytics')}>Analytics</button>
+          <button className={`admin-link ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>Users</button>
+          <button className={`admin-link ${tab==='pending'?'active':''}`} onClick={()=>setTab('pending')}>Pending Posts {pending.length?`(${pending.length})`:''}</button>
+          <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
           <button className={`admin-link ${tab==='applications'?'active':''}`} onClick={()=>setTab('applications')}>Applications {apps.length?`(${apps.length})`:''}</button>
           <button className={`admin-link ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')}>Reports {reports.filter(r=>r.status==='open').length?`(${reports.filter(r=>r.status==='open').length})`:''}</button>
-            <div className="muted" style={{ margin:'12px 4px 4px', fontSize:'.85rem' }}>Quick links</div>
-            <Link className="admin-link" to="/editor">New Post</Link>
-            <Link className="admin-link" to="/dashboard">Author Dashboard</Link>
-            <Link className="admin-link" to="/profile">Profile</Link>
-            <Link className="admin-link" to="/">Home</Link>
-          </nav>
+          <div className="muted" style={{ margin:'12px 4px 4px', fontSize:'.85rem' }}>Quick links</div>
+          <Link className="admin-link" to="/editor">New Post</Link>
+          <Link className="admin-link" to="/admin/library">Library</Link>
+          <Link className="admin-link" to="/dashboard">Author Dashboard</Link>
+          <Link className="admin-link" to="/profile">Profile</Link>
+          <Link className="admin-link" to="/">Home</Link>
+        </nav>
         </aside>
         <main className="admin-content">
           {tab==='dashboard' && (loading ? <DashboardSkeleton /> : <DashboardView />)}
