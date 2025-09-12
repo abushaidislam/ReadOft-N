@@ -24,6 +24,9 @@ export default function Editor() {
   // Track last saved content to avoid redundant autosaves/revisions
   const lastSavedRef = useRef({ content: '' })
   const [autoSaving, setAutoSaving] = useState(false)
+  // Diff modal state
+  const [diffOpen, setDiffOpen] = useState(false)
+  const [diffLines, setDiffLines] = useState([])
   // Tag input state
   const tagInputRef = useRef(null)
   const [tagText, setTagText] = useState('')
@@ -42,6 +45,37 @@ export default function Editor() {
     let i = 0; let v = num
     while (v >= 1024 && i < units.length-1) { v /= 1024; i++ }
     return `${v.toFixed(v<10 && i>0 ? 1 : 0)} ${units[i]}`
+  }
+
+  // --- Simple line-level diff (LCS-based) for "Compare Changes" ---
+  function computeLineDiff(aText, bText) {
+    const a = String(aText || '').replace(/\r\n/g, '\n').split('\n')
+    const b = String(bText || '').replace(/\r\n/g, '\n').split('\n')
+    const n = a.length, m = b.length
+    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        if (a[i] === b[j]) dp[i][j] = 1 + dp[i + 1][j + 1]
+        else dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1])
+      }
+    }
+    let i = 0, j = 0
+    const out = []
+    while (i < n && j < m) {
+      if (a[i] === b[j]) { out.push({ t: 'eq', text: a[i] }); i++; j++; }
+      else if (dp[i][j + 1] >= dp[i + 1][j]) { out.push({ t: 'add', text: b[j] }); j++; }
+      else { out.push({ t: 'del', text: a[i] }); i++; }
+    }
+    while (i < n) { out.push({ t: 'del', text: a[i++] }) }
+    while (j < m) { out.push({ t: 'add', text: b[j++] }) }
+    return out
+  }
+  function openCompare() {
+    const base = lastSavedRef.current?.content || ''
+    const curr = form.content || ''
+    const lines = computeLineDiff(base, curr)
+    setDiffLines(lines)
+    setDiffOpen(true)
   }
   const formatDate = (d) => {
     try { return new Date(d || Date.now()).toLocaleString() } catch { return '' }
@@ -447,6 +481,9 @@ export default function Editor() {
               } catch (e) { if (import.meta.env.DEV) console.debug('get preview link failed', e) }
             }}>Get Preview Link</button>
           )}
+          <button className="btn" type="button" onClick={openCompare} disabled={(form.content || '') === (lastSavedRef.current.content || '')}>
+            Compare Changes
+          </button>
           <button className={`btn btn-primary ${saving ? 'loading' : ''}`} form="editor-form" type="submit" disabled={saving}>
             {saving ? 'Saving…' : (form.status === 'pending' && auth.user?.role !== 'admin' ? 'Submit for review' : 'Save')}
           </button>
@@ -606,6 +643,30 @@ export default function Editor() {
               ))}
             </ul>
           )}
+        </div>
+      )}
+      {diffOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setDiffOpen(false)}>
+          <div className="modal-card" onClick={(e)=>e.stopPropagation()}>
+            <div className="page-head" style={{ marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>Changes vs last saved</h3>
+              <button className="btn" onClick={() => setDiffOpen(false)}>Close</button>
+            </div>
+            <div className="diff-view">
+              <pre className="diff-pre">
+                {diffLines.length === 0 ? (
+                  <span className="muted">No changes</span>
+                ) : (
+                  diffLines.map((ln, i) => (
+                    <div key={i} className={`diff-line ${ln.t}`}>
+                      <span className="gutter" aria-hidden="true">{ln.t === 'add' ? '+' : (ln.t === 'del' ? '-' : ' ')}</span>
+                      <span className="text">{ln.text || '\u00A0'}</span>
+                    </div>
+                  ))
+                )}
+              </pre>
+            </div>
+          </div>
         </div>
       )}
       {mediaOpen && (

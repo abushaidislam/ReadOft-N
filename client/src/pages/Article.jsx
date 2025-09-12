@@ -163,13 +163,14 @@ export default function Article() {
     }
   }, [])
 
-  // Build TOC from rendered headings (h2/h3) for consistent anchors
+  // Build TOC from rendered headings (h1–h4) for consistent anchors
   useEffect(() => {
     const t = setTimeout(() => {
       const list = []
-      document.querySelectorAll('.markdown h2, .markdown h3').forEach((el) => {
-        const text = el.textContent || ''
-        const level = el.tagName === 'H2' ? 2 : 3
+      const selector = '.markdown h1, .markdown h2, .markdown h3, .markdown h4'
+      document.querySelectorAll(selector).forEach((el) => {
+        const text = (el.textContent || '').trim()
+        const level = Number(el.tagName?.slice(1)) || 2
         let idAttr = el.getAttribute('id')
         if (!idAttr) {
           idAttr = text.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-')
@@ -201,10 +202,10 @@ export default function Article() {
   useEffect(() => { try { localStorage.setItem('reader.layoutWidth', layoutWidth) } catch (e) { if (import.meta.env.DEV) console.debug('persist layoutWidth failed', e) } }, [layoutWidth])
   useEffect(() => { try { localStorage.setItem('reader.fontId', fontId) } catch (e) { if (import.meta.env.DEV) console.debug('persist fontId failed', e) } }, [fontId])
 
-  // Scrollspy for TOC
+  // Scrollspy for TOC (h1–h4)
   useEffect(() => {
     if (!toc.length) return
-    const headings = Array.from(document.querySelectorAll('.markdown h2, .markdown h3')).filter(el => el.id)
+    const headings = Array.from(document.querySelectorAll('.markdown h1, .markdown h2, .markdown h3, .markdown h4')).filter(el => el.id)
     if (!headings.length) return
     const onScroll = () => {
       const css = getComputedStyle(document.documentElement)
@@ -257,7 +258,7 @@ export default function Article() {
   }, [toc])
 
   const jumpToHeading = (dir) => {
-    const headings = Array.from(document.querySelectorAll('.markdown h2, .markdown h3')).filter((el) => el.id)
+    const headings = Array.from(document.querySelectorAll('.markdown h1, .markdown h2, .markdown h3, .markdown h4')).filter((el) => el.id)
     if (!headings.length) return
     const css = getComputedStyle(document.documentElement)
     const off = parseInt(css.getPropertyValue('--anchor-offset'))

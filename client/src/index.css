@@ -413,6 +413,15 @@ h1,h2,h3 { margin: 10px 0 }
 /* Modal */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; z-index: 120; padding: 16px; }
 .modal-card { width: min(900px, 96vw); max-height: 80vh; overflow: auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 20px 40px rgba(0,0,0,.4); }
+/* Diff viewer */
+.diff-view { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #0f1320 }
+.diff-pre { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
+.diff-line { display: grid; grid-template-columns: 20px 1fr; gap: 8px; padding: 2px 12px; white-space: pre-wrap; align-items: start }
+.diff-line .gutter { color: var(--muted) }
+.diff-line.eq { background: transparent }
+.diff-line.add { background: rgba(16,185,129,.08); border-left: 3px solid #10b981 }
+.diff-line.del { background: rgba(239,68,68,.08); border-left: 3px solid #ef4444 }
+[data-theme='light'] .diff-view { background:#f9fafb }
 
 /* Media picker grid */
 .media-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:12px; }
