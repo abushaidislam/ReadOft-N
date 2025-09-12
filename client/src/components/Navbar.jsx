@@ -51,6 +51,7 @@ export default function Navbar() {
           <Link to="/">Home</Link>
           {auth.user && <Link to="/feed">Feed</Link>}
           <Link to="/categories">Categories</Link>
+          <Link to="/authors">Authors</Link>
           {auth.user && auth.user.role !== 'admin' && <Link to="/profile">Profile</Link>}
           {auth.user?.role === 'author' ? (
             <>

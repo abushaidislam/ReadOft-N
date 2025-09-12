@@ -20,6 +20,7 @@ import AdminLibrary from './pages/AdminLibrary.jsx'
 import ProtectedRoute from './routes/ProtectedRoute'
 import Feed from './pages/Feed'
 import Author from './pages/Author'
+import Authors from './pages/Authors.jsx'
 import { useAuth } from './state/AuthContext.jsx'
 
 function GlobalUI() {
@@ -56,6 +57,7 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<Register />} />
         <Route path="/categories" element={<Categories />} />
+        <Route path="/authors" element={<Authors />} />
         <Route path="/category/:slug" element={<Category />} />
         <Route path="/article/:id" element={<Article />} />
         <Route path="/a/:slug" element={<Article />} />
