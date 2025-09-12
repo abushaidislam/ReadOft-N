@@ -1,8 +1,24 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { useAuth } from '../state/AuthContext.jsx'
 
 export default function Footer() {
+  const { request, ui } = useAuth()
   const year = new Date().getFullYear()
   const app = import.meta.env.VITE_APP_NAME || 'Readoft'
+  const [email, setEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const onSubscribe = async (e) => {
+    e.preventDefault()
+    const v = String(email||'').trim()
+    if (!v) { ui?.notify?.('Please enter your email', 'error'); return }
+    setBusy(true)
+    try {
+      await request('/newsletter/subscribe', { method:'POST', body: JSON.stringify({ email: v }), noGlobalLoading: true })
+      ui?.notify?.('Subscribed! Check your inbox soon.', 'success')
+      setEmail('')
+    } catch (err) { ui?.notify?.(err?.message || 'Subscription failed', 'error') } finally { setBusy(false) }
+  }
   return (
     <footer className="footer" role="contentinfo">
       <div className="container footer-inner">
@@ -12,6 +28,19 @@ export default function Footer() {
             <span className="sr-only">{app}</span>
           </Link>
           <p className="muted" style={{ marginTop: 8 }}>Read. Write. Discover. A modern platform for readers and authors.</p>
+          <form onSubmit={onSubscribe} className="newsletter" style={{ display:'flex', gap:8, marginTop:12 }}>
+            <input
+              type="email"
+              placeholder="Your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-label="Email for newsletter"
+              required
+              disabled={busy}
+              style={{ flex:1 }}
+            />
+            <button className="btn" type="submit" disabled={busy}>{busy ? 'Subscribing…' : 'Subscribe'}</button>
+          </form>
           <div className="socials" aria-label="Social links">
             <a className="social-btn" href="https://twitter.com" target="_blank" rel="noreferrer" aria-label="Twitter">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M22.46 6c-.77.35-1.6.58-2.46.69a4.26 4.26 0 001.87-2.35 8.49 8.49 0 01-2.7 1.03 4.24 4.24 0 00-7.22 3.87 12.03 12.03 0 01-8.73-4.43 4.24 4.24 0 001.31 5.66 4.2 4.2 0 01-1.92-.53v.05a4.24 4.24 0 003.4 4.16 4.25 4.25 0 01-1.91.07 4.24 4.24 0 003.95 2.94A8.5 8.5 0 012 19.54 12 12 0 008.29 21c7.55 0 11.68-6.26 11.68-11.68 0-.18-.01-.36-.02-.54A8.35 8.35 0 0022.46 6z"></path></svg>
@@ -45,8 +74,9 @@ export default function Footer() {
           <strong>Company</strong>
           <nav className="foot-links">
             <a href="mailto:support@example.com">Support</a>
-            <a href="#" onClick={(e)=>e.preventDefault()}>Privacy</a>
-            <a href="#" onClick={(e)=>e.preventDefault()}>Terms</a>
+            <Link to="/contact">Contact</Link>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
           </nav>
         </div>
       </div>

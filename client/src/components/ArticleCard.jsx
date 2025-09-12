@@ -103,6 +103,9 @@ export default function ArticleCard({ article, index = 0 }) {
         {(article.categories || []).map((c) => (
           <Link className="chip" key={c} to={`/category/${c}`}>{c}</Link>
         ))}
+        {(article.tags || []).slice(0, 3).map((t) => (
+          <Link className="chip" key={`tag-${t}`} to={`/tag/${encodeURIComponent(t)}`}>#{t}</Link>
+        ))}
       </div>
     </article>
   )

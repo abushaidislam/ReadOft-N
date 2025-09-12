@@ -191,3 +191,21 @@ create table if not exists reports (
 );
 create index if not exists idx_reports_status on reports(status, created_at desc);
 create index if not exists idx_reports_target on reports(target_type, target_id);
+
+-- Newsletter subscriptions (simple opt-in list)
+create table if not exists newsletter_subscriptions (
+  id uuid primary key,
+  email text not null unique,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_newsletter_email on newsletter_subscriptions(email);
+
+-- Contact messages from contact form
+create table if not exists contact_messages (
+  id uuid primary key,
+  name text not null,
+  email text not null,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_contact_created on contact_messages(created_at desc);

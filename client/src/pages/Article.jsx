@@ -681,6 +681,16 @@ export default function Article() {
             <a href={`/author/${article.author_id}`} className="author-name">{article.author?.name || 'Author'}</a>
           </div>
           <p className="muted">{new Date(article.created_at).toLocaleString()} • {article.like_count} likes</p>
+          {(Array.isArray(article.categories) && article.categories.length > 0) || (Array.isArray(article.tags) && article.tags.length > 0) ? (
+            <div className="chips" style={{ marginTop: 8, display:'flex', gap:8, flexWrap:'wrap' }}>
+              {(article.categories || []).map((c) => (
+                <a key={`cat-${c}`} className="chip" href={`/category/${encodeURIComponent(c)}`}>{c}</a>
+              ))}
+              {(article.tags || []).slice(0, 6).map((t) => (
+                <a key={`tag-${t}`} className="chip" href={`/tag/${encodeURIComponent(t)}`}>#{t}</a>
+              ))}
+            </div>
+          ) : null}
         </div>
         <a className="btn" href={`/author/${article.author_id}`}>View Author</a>
       </div>
