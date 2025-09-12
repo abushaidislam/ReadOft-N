@@ -21,6 +21,12 @@ export default function Editor() {
   const [articleId, setArticleId] = useState(id || '')
   const [revisions, setRevisions] = useState([])
   const editorRef = useRef(null)
+  // Track last saved content to avoid redundant autosaves/revisions
+  const lastSavedRef = useRef({ content: '' })
+  const [autoSaving, setAutoSaving] = useState(false)
+  // Tag input state
+  const tagInputRef = useRef(null)
+  const [tagText, setTagText] = useState('')
   // Media library state
   const [mediaOpen, setMediaOpen] = useState(false)
   const [mediaItems, setMediaItems] = useState([])
@@ -62,7 +68,7 @@ export default function Editor() {
       status: a.status,
       thumbnail_url: a.thumbnail_url || '',
       thumbnail_path: a.thumbnail_path || '',
-    }); setSlug(a.slug || slugify(a.title)) }).catch((e)=>{ if (import.meta.env.DEV) console.debug('load article failed', e) })
+    }); setSlug(a.slug || slugify(a.title)); lastSavedRef.current.content = a.content || '' }).catch((e)=>{ if (import.meta.env.DEV) console.debug('load article failed', e) })
   }, [id, request])
 
   useEffect(() => { request('/categories').then(setAllCategories).catch((e)=>{ if (import.meta.env.DEV) console.debug('load categories failed', e) }) }, [request])
@@ -72,36 +78,80 @@ export default function Editor() {
   // load revisions when article id available
   useEffect(() => { if (articleId) request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch((e)=>{ if (import.meta.env.DEV) console.debug('load revisions failed', e) }) }, [articleId, request])
 
-  // autosave draft every 10s when editing
+  // Derived tags array and suggestions
+  const tagsList = useMemo(() => (form.tags || '').split(',').map((s)=>s.trim()).filter(Boolean), [form.tags])
+  const tagSuggestions = useMemo(() => {
+    const base = ['Next.js','React','Tailwind','TypeScript','UI']
+    const fromCats = (allCategories || []).map((c)=>c?.name).filter(Boolean)
+    return Array.from(new Set([...base, ...fromCats]))
+  }, [allCategories])
+
+  function setTags(list) {
+    const unique = Array.from(new Set(list.map((t)=>t.toString().trim()).filter(Boolean)))
+    setForm((f)=>({ ...f, tags: unique.join(', ') }))
+  }
+  function addTag(raw) {
+    const t = (raw || '').trim()
+    if (!t) return
+    if (tagsList.some((x)=>x.toLowerCase() === t.toLowerCase())) return
+    setTags([...tagsList, t])
+    setTagText('')
+    setTimeout(()=>{ try { tagInputRef.current?.focus() } catch (e) { if (import.meta.env.DEV) console.debug('focus tag input failed', e) } }, 0)
+  }
+  function removeTag(tag) {
+    setTags(tagsList.filter((x)=>x.toLowerCase() !== String(tag).toLowerCase()))
+  }
+  function handleTagKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+      e.preventDefault()
+      addTag(tagText.replace(/,$/, ''))
+    } else if (e.key === 'Backspace' && !tagText) {
+      // remove last tag when input empty
+      const last = tagsList[tagsList.length - 1]
+      if (last) removeTag(last)
+    }
+  }
+  function handleTagBlur() {
+    if (!tagText.trim()) return
+    addTag(tagText)
+  }
+
+  // autosave draft every 10s when editing (content-only changes, local skeleton, no global loading)
   useEffect(() => {
     const t = setInterval(async () => {
       try {
         if (!form.title && !form.content) return
+        const finalTagsArr = Array.from(new Set([...tagsList, ...(tagText.trim() ? [tagText.trim()] : [])]))
         const payload = {
           title: form.title || '(untitled)',
           content: form.content || '',
-          tags: form.tags.split(',').map((s)=>s.trim()).filter(Boolean),
+          tags: finalTagsArr,
           categories: form.categories,
           thumbnail_url: form.thumbnail_url || '',
           thumbnail_path: form.thumbnail_path || '',
           status: form.status || 'draft',
           slug,
         }
+        // skip if content unchanged
+        if ((payload.content || '') === (lastSavedRef.current.content || '')) return
+        setAutoSaving(true)
         if (!articleId) {
-          const created = await request('/articles', { method:'POST', body: JSON.stringify({ ...payload, status:'draft' }) })
+          const created = await request('/articles', { method:'POST', body: JSON.stringify({ ...payload, status:'draft' }), noGlobalLoading: true })
           setArticleId(created.id)
           setSavingNote('Autosaved')
           // navigate to canonical editor URL with id
           nav(`/editor/${created.id}`, { replace: true })
         } else {
-          await request(`/articles/${articleId}`, { method:'PUT', body: JSON.stringify({ ...payload, status: form.status }) })
+          await request(`/articles/${articleId}`, { method:'PUT', body: JSON.stringify({ ...payload, status: form.status }), noGlobalLoading: true })
           setSavingNote('Autosaved')
           request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{})
         }
+        lastSavedRef.current.content = payload.content || ''
       } catch (e) { if (import.meta.env.DEV) console.debug('editor autosave failed', e) }
+      finally { setAutoSaving(false) }
     }, 10000)
     return () => clearInterval(t)
-  }, [articleId, form.title, form.content, form.tags, form.categories, form.status, form.thumbnail_path, form.thumbnail_url, slug, request, nav])
+  }, [articleId, form.title, form.content, form.tags, form.categories, form.status, form.thumbnail_path, form.thumbnail_url, slug, request, nav, tagsList, tagText])
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -127,10 +177,11 @@ export default function Editor() {
         thumbnail_url = up.url
         thumbnail_path = up.path || ''
       }
+      const finalTagsArr = Array.from(new Set([...tagsList, ...(tagText.trim() ? [tagText.trim()] : [])]))
       const payload = {
         title: form.title,
         content: form.content,
-        tags: form.tags.split(',').map((s) => s.trim()).filter(Boolean),
+        tags: finalTagsArr,
         categories: form.categories,
         thumbnail_url,
         thumbnail_path,
@@ -140,6 +191,7 @@ export default function Editor() {
       }
       if (id) await request(`/articles/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
       else await request('/articles', { method: 'POST', body: JSON.stringify(payload) })
+      lastSavedRef.current.content = form.content || ''
       ui?.notify?.('Saved successfully', 'success')
       nav('/dashboard')
     } catch (e) {
@@ -376,7 +428,11 @@ export default function Editor() {
         <div className="left" style={{display:'flex', alignItems:'center', gap:8}}>
           <h2 className="card-title" style={{ margin: 0 }}>{id ? 'Edit Article' : 'New Article'}</h2>
           <span className={`badge ${form.status}`}>{form.status}</span>
-          {savingNote && <span className="muted">• {savingNote}</span>}
+          {autoSaving ? (
+            <span className="skeleton-line" style={{ width: 80, height: 10, borderRadius: 6 }} />
+          ) : (
+            savingNote && <span className="muted">• {savingNote}</span>
+          )}
         </div>
         <div className="right" style={{ display:'flex', gap:8, alignItems:'center' }}>
           {articleId && (
@@ -400,26 +456,6 @@ export default function Editor() {
       <form id="editor-form" onSubmit={onSubmit} className="form">
         <div className="card">
           <input className="title-input" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <div className="editor-toolbar">
-          <button type="button" className="btn" onClick={() => wrapSelection('**','**')}>Bold</button>
-          <button type="button" className="btn" onClick={() => wrapSelection('_','_')}>Italic</button>
-          <button type="button" className="btn" onClick={() => wrapSelection('<u>','</u>')}>Underline</button>
-          <button type="button" className="btn" onClick={insertLink}>Link</button>
-          <button type="button" className="btn" onClick={() => insertLine('# ')}>H1</button>
-          <button type="button" className="btn" onClick={() => insertLine('## ')}>H2</button>
-          <button type="button" className="btn" onClick={() => insertLine('### ')}>H3</button>
-          <button type="button" className="btn" onClick={() => insertLine('> ')}>Quote</button>
-          <button type="button" className="btn" onClick={() => wrapSelection('`','`')}>Code</button>
-          <button type="button" className="btn" onClick={() => insertLine('- ')}>Bulleted</button>
-          <button type="button" className="btn" onClick={() => insertLine('1. ')}>Ordered</button>
-          <button type="button" className="btn" onClick={() => insertLine('- [ ] ')}>Task</button>
-          <button type="button" className="btn" onClick={insertHr}>HR</button>
-          <button type="button" className="btn" onClick={insertCodeBlock}>Code Block</button>
-          <button type="button" className="btn" onClick={clearFormatting}>Clear</button>
-          <input id="media-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={handleMediaSelect} />
-          <button type="button" className="btn btn-primary" onClick={() => document.getElementById('media-input').click()}>Upload Image</button>
-          <button type="button" className="btn" onClick={() => openMedia('inline')}>From Library</button>
-        </div>
         </div>
         <div className="card">
           <label>Thumbnail image</label>
@@ -434,6 +470,26 @@ export default function Editor() {
           </div>
         </div>
         <div className="card">
+          <div className="editor-toolbar sticky">
+            <button type="button" className="btn" onClick={() => wrapSelection('**','**')}>Bold</button>
+            <button type="button" className="btn" onClick={() => wrapSelection('_','_')}>Italic</button>
+            <button type="button" className="btn" onClick={() => wrapSelection('<u>','</u>')}>Underline</button>
+            <button type="button" className="btn" onClick={insertLink}>Link</button>
+            <button type="button" className="btn" onClick={() => insertLine('# ')}>H1</button>
+            <button type="button" className="btn" onClick={() => insertLine('## ')}>H2</button>
+            <button type="button" className="btn" onClick={() => insertLine('### ')}>H3</button>
+            <button type="button" className="btn" onClick={() => insertLine('> ')}>Quote</button>
+            <button type="button" className="btn" onClick={() => wrapSelection('`','`')}>Code</button>
+            <button type="button" className="btn" onClick={() => insertLine('- ')}>Bulleted</button>
+            <button type="button" className="btn" onClick={() => insertLine('1. ')}>Ordered</button>
+            <button type="button" className="btn" onClick={() => insertLine('- [ ] ')}>Task</button>
+            <button type="button" className="btn" onClick={insertHr}>HR</button>
+            <button type="button" className="btn" onClick={insertCodeBlock}>Code Block</button>
+            <button type="button" className="btn" onClick={clearFormatting}>Clear</button>
+            <input id="media-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={handleMediaSelect} />
+            <button type="button" className="btn btn-primary" onClick={() => document.getElementById('media-input').click()}>Upload Image</button>
+            <button type="button" className="btn" onClick={() => openMedia('inline')}>From Library</button>
+          </div>
           <textarea
             ref={editorRef}
             placeholder="Write your content in Markdown… (paste or drop images to insert)"
@@ -446,8 +502,35 @@ export default function Editor() {
           />
         </div>
         <div className="card">
-          <input placeholder="Tags (comma separated)" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
-          <label>Categories:</label>
+          <label className="field-title">Tags</label>
+          <input
+            ref={tagInputRef}
+            className="tag-input"
+            placeholder="Add tag..."
+            value={tagText}
+            onChange={(e)=>setTagText(e.target.value)}
+            onKeyDown={handleTagKeyDown}
+            onBlur={handleTagBlur}
+          />
+          {tagsList.length > 0 && (
+            <div className="chips selected-tags" style={{ marginTop: 8 }}>
+              {tagsList.map((t) => (
+                <span key={t} className="chip tag-chip" role="button" tabIndex={0} title="Remove tag"
+                  onClick={()=>removeTag(t)}
+                  onKeyDown={(e)=>{ if (e.key==='Enter') removeTag(t) }}>
+                  <span>{t}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="tag-divider" aria-hidden="true" />
+          <div className="muted" style={{ marginTop: 12, marginBottom: 6 }}>Suggestions</div>
+          <div className="chips">
+            {tagSuggestions.filter((s)=> !tagsList.some((t)=>t.toLowerCase()===s.toLowerCase())).map((s) => (
+              <button type="button" key={s} className="chip suggestion-chip" onClick={()=>addTag(s)}>{s}</button>
+            ))}
+          </div>
+          <label style={{ marginTop: 12 }}>Categories:</label>
           <div className="chips">
             {allCategories.map((c) => {
               const checked = form.categories.includes(c.slug)
@@ -463,14 +546,25 @@ export default function Editor() {
               )
             })}
           </div>
-          <label>
-            Status:
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="draft">Draft</option>
-              <option value="pending">Submit for review</option>
-              {auth.user?.role === 'admin' && <option value="published">Published</option>}
-            </select>
-          </label>
+          <div className="status-chips" style={{ marginTop: 12 }}>
+            <label className="field-title" style={{ marginBottom: 6 }}>Status</label>
+            <div className="chips">
+              {['draft','pending','published'].map((s) => {
+                const disabled = s === 'published' && auth.user?.role !== 'admin'
+                const active = form.status === s
+                const label = s === 'pending' ? 'Submit for review' : (s.charAt(0).toUpperCase() + s.slice(1))
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    className={`chip ${active ? 'active' : ''}`}
+                    disabled={disabled}
+                    onClick={()=>{ if (!disabled) setForm({ ...form, status: s }) }}
+                  >{label}</button>
+                )
+              })}
+            </div>
+          </div>
           {auth.user?.role !== 'admin' && (
             <div className="muted" style={{ fontSize: '.85rem' }}>
               Authors can save drafts or submit for review. An admin will approve and publish.

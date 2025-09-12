@@ -5,7 +5,8 @@ export default function Subnav() {
   const loc = useLocation()
   const nav = useNavigate()
   const isAdmin = loc.pathname.startsWith('/admin')
-  const show = loc.pathname !== '/' && !isAdmin
+  const isEditor = loc.pathname.startsWith('/editor')
+  const show = loc.pathname !== '/' && !isAdmin && !isEditor
   const [hidden, setHidden] = useState(false)
   const lastY = useRef(typeof window !== 'undefined' ? window.scrollY : 0)
   const lastTick = useRef(0)
