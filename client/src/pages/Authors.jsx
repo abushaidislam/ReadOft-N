@@ -108,15 +108,20 @@ export default function Authors() {
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
           <div style={{ position:'relative' }}>
             {u.avatar_url ? (
-              <img src={u.avatar_url} alt={u.name} width={80} height={80} style={{ borderRadius:'50%', objectFit:'cover', border:'2px solid var(--border)' }} loading="lazy" decoding="async" />
+              <img src={u.avatar_url} alt={u.name} width={96} height={96} style={{ borderRadius:'50%', objectFit:'cover', border:'2px solid var(--border)' }} loading="lazy" decoding="async" />
             ) : (
-              <span className="avatar-fallback" style={{ width:80, height:80 }}>{(u.name || 'A').slice(0,1).toUpperCase()}</span>
+              <span className="avatar-fallback" style={{ width:96, height:96 }}>{(u.name || 'A').slice(0,1).toUpperCase()}</span>
             )}
             {/* small status dot */}
-            <span style={{ position:'absolute', right:-2, bottom:-2, width:14, height:14, background:'var(--primary)', borderRadius:'50%', border:'2px solid var(--bg)' }}></span>
+            <span style={{ position:'absolute', right:-2, bottom:-2, width:16, height:16, background:'var(--primary)', borderRadius:'50%', border:'2px solid var(--bg)' }}></span>
           </div>
           <div style={{ textAlign:'center' }}>
-            <div style={{ fontWeight:600, fontSize:'1.05rem' }}>{u.name || 'Author'}</div>
+            <div style={{ fontWeight:600, fontSize:'1.05rem', display:'inline-flex', alignItems:'center', gap:6 }}>
+              <span>{u.name || 'Author'}</span>
+              {u.is_verified && (
+                <span className="verified-badge" title="Verified" aria-label="Verified" style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:18, height:18, borderRadius:'50%', background:'var(--primary)', color:'#fff', fontSize:12, lineHeight:1 }}>✓</span>
+              )}
+            </div>
             {/* Stats: followers + posts (show only if present) */}
             {((u.follower_count != null) || (u.posts_count != null)) && (
               <div className="muted" style={{ display:'flex', gap:14, justifyContent:'center', marginTop:6, fontSize:'.9rem' }}>
@@ -196,7 +201,7 @@ export default function Authors() {
           ) : (
             <span />
           )}
-          <Link className="btn btn-primary" to={`/author/${u.id}`}>View Profile</Link>
+          <Link className="btn" to={`/author/${u.id}`}>View Profile</Link>
         </div>
       </div>
     )

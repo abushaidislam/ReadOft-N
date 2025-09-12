@@ -40,7 +40,7 @@ router.get('/list', async (req, res) => {
 
     const { data, error, count } = await supabase
       .from('users')
-      .select('id, name, avatar_url, bio, role, created_at', { count: 'exact' })
+      .select('id, name, avatar_url, bio, role, is_verified, created_at', { count: 'exact' })
       .eq('role', 'author')
       .order(orderKey, { ascending: !desc })
       .range(start, end)
@@ -146,7 +146,7 @@ router.get('/top', async (req, res) => {
     if (topIds.length === 0) return res.json([])
     const { data: authors, error: aErr } = await supabase
       .from('users')
-      .select('id, name, avatar_url, bio')
+      .select('id, name, avatar_url, bio, is_verified')
       .in('id', topIds)
     if (aErr) throw aErr
     const map = Object.fromEntries(sorted)
@@ -227,7 +227,7 @@ router.get('/:id', async (req, res) => {
     const id = req.params.id
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, bio, avatar_url, role, created_at')
+      .select('id, name, bio, avatar_url, role, is_verified, created_at')
       .eq('id', id)
       .maybeSingle()
     if (error) throw error
@@ -246,7 +246,7 @@ router.get('/:id/summary', async (req, res) => {
     // Author info
     const { data: user, error: uErr } = await supabase
       .from('users')
-      .select('id, name, bio, avatar_url, role, created_at')
+      .select('id, name, bio, avatar_url, role, is_verified, created_at')
       .eq('id', authorId)
       .maybeSingle()
     if (uErr) throw uErr

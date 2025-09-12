@@ -1,6 +1,7 @@
 import express from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 import { authRequired } from '../middleware/auth.js'
 import { supabase } from '../supabase.js'
 import { validateUser } from '../models/user.js'

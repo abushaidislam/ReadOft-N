@@ -404,7 +404,14 @@ export default function Admin() {
             ) : paginatedUsers.map((u) => (
               <tr key={u.id}>
                 <td><input type="checkbox" aria-label={`Select ${u.email}`} checked={selectedUserIds.includes(u.id)} onChange={() => setSelectedUserIds(prev => prev.includes(u.id) ? prev.filter(id => id!==u.id) : [...prev, u.id])} /></td>
-                <td>{u.name}</td>
+                <td>
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
+                    <span>{u.name}</span>
+                    {u.is_verified && (
+                      <span title="Verified" aria-label="Verified" style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:16, height:16, borderRadius:'50%', background:'var(--primary)', color:'#fff', fontSize:10, lineHeight:1 }}>✓</span>
+                    )}
+                  </span>
+                </td>
                 <td>{u.email}</td>
                 <td>{u.role}</td>
                 <td>{u.is_banned ? <span className="badge pending">banned</span> : <span className="badge published">active</span>}</td>
@@ -416,6 +423,7 @@ export default function Admin() {
                     <option value="admin">admin</option>
                   </select>
                   <button className="btn" onClick={async()=>{ await request(`/admin/users/${u.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: !u.is_banned }), noGlobalLoading: true }); load() }}>{u.is_banned?'Unban':'Ban'}</button>
+                  <button className="btn" onClick={async()=>{ await request(`/admin/users/${u.id}/verify`, { method:'PUT', body: JSON.stringify({ verified: !u.is_verified }), noGlobalLoading: true }); ui.notify(u.is_verified ? 'Unverified' : 'Verified', 'success'); load() }}>{u.is_verified ? 'Unverify' : 'Verify'}</button>
                   <button className="btn" onClick={async()=>{ if (confirm('Delete user account? This cannot be undone.')) { await request(`/admin/users/${u.id}`, { method:'DELETE', noGlobalLoading: true }); load() } }}>Delete</button>
                 </td>
               </tr>

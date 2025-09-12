@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import ArticleCard from '../components/ArticleCard.jsx'
@@ -15,12 +15,12 @@ export default function Author() {
   const [followed, setFollowed] = useState(false)
   const [sort, setSort] = useState('-created_at') // '-created_at' | '-like_count'
 
-  const loadSummary = async () => {
+  const loadSummary = useCallback(async () => {
     const s = await request(`/authors/${id}/summary`)
     setSummary(s)
-  }
+  }, [id, request])
 
-  const loadArticles = async () => {
+  const loadArticles = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ author_id: id, page: String(page), limit: '12', sort })
@@ -32,24 +32,24 @@ export default function Author() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id, page, sort, request])
 
-  const checkFollow = async () => {
+  const checkFollow = useCallback(async () => {
     try {
       const list = await request('/follows/me')
       setFollowed((list || []).some((u) => u.id === id))
     } catch (e) { if (import.meta.env.DEV) console.debug('checkFollow failed', e) }
-  }
+  }, [id, request])
 
-  const follow = async () => {
+  const follow = useCallback(async () => {
     try { await request(`/follows/${id}`, { method: 'POST' }); setFollowed(true); loadSummary() } catch (e) { if (import.meta.env.DEV) console.debug('follow failed', e) }
-  }
-  const unfollow = async () => {
+  }, [id, request, loadSummary])
+  const unfollow = useCallback(async () => {
     try { await request(`/follows/${id}`, { method: 'DELETE' }); setFollowed(false); loadSummary() } catch (e) { if (import.meta.env.DEV) console.debug('unfollow failed', e) }
-  }
+  }, [id, request, loadSummary])
 
-  useEffect(() => { setPage(1); loadSummary().catch(()=>{}); checkFollow().catch(()=>{}); }, [id])
-  useEffect(() => { loadArticles().catch(()=>{}) }, [page, sort, id])
+  useEffect(() => { setPage(1); loadSummary().catch(()=>{}); checkFollow().catch(()=>{}) }, [id, loadSummary, checkFollow])
+  useEffect(() => { loadArticles().catch(()=>{}) }, [loadArticles])
 
   if (error) return <div className="container page"><p className="error">{error}</p></div>
 
@@ -69,7 +69,12 @@ export default function Author() {
         <div style={{ flex:1 }}>
           <div className="page-head" style={{ marginBottom:6, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
             <div>
-              <h2 style={{ margin: 0 }}>{summary?.user?.name || 'Author'}</h2>
+              <h2 style={{ margin: 0, display:'inline-flex', alignItems:'center', gap:8 }}>
+                <span>{summary?.user?.name || 'Author'}</span>
+                {summary?.user?.is_verified && (
+                  <span className="verified-badge" title="Verified" aria-label="Verified" style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:20, height:20, borderRadius:'50%', background:'var(--primary)', color:'#fff', fontSize:12, lineHeight:1 }}>✓</span>
+                )}
+              </h2>
               {summary?.user?.headline && <div className="muted" style={{ marginTop:4 }}>{summary.user.headline}</div>}
             </div>
             <div>

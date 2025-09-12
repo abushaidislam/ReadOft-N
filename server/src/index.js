@@ -43,6 +43,17 @@ app.use(express.json({ limit: '1mb' }))
 app.use(authOptional)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'readoft-api' }))
+
+// Configuration guard: if Supabase is not configured, return a clear 503 for API calls
+const missingSupabase = !process.env.SUPABASE_URL || (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_ANON_KEY)
+if (missingSupabase) {
+  // eslint-disable-next-line no-console
+  console.warn('[Startup] SUPABASE_URL or API keys missing. API endpoints will return 503 until configured.')
+  app.use('/api', (req, res, next) => {
+    if (req.path === '/health') return next()
+    return res.status(503).json({ message: 'Server not configured. Please set SUPABASE_URL and at least one of SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY in server/.env.' })
+  })
+}
 app.use('/api/auth', authRoutes)
 app.use('/api/articles', articleRoutes)
 app.use('/api/follows', followRoutes)

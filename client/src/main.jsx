@@ -11,3 +11,12 @@ createRoot(document.getElementById('root')).render(
     </AuthProvider>
   </StrictMode>,
 )
+
+// Register service worker for PWA (only if supported)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      if (import.meta.env.DEV) console.debug('Service worker registration failed', err)
+    })
+  })
+}

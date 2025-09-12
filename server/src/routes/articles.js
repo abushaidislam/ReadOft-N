@@ -65,8 +65,15 @@ router.get('/', authOptional, async (req, res) => {
     if (error) throw error
     const total = count ?? 0
     const totalPages = Math.max(1, Math.ceil(total / limit))
+    // Attach reading_time (words/200, min 1)
+    const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
+    const calcRead = (txt) => {
+      const words = sanitize(txt).trim().split(/\s+/).filter(Boolean).length
+      return Math.max(1, Math.round(words / 200))
+    }
+    const itemsWith = (data || []).map((a) => ({ ...a, reading_time: calcRead(a.content) }))
     res.json({
-      items: data || [],
+      items: itemsWith,
       pageInfo: { page, pageSize: limit, total, totalPages, sort: sortParam },
     })
   } catch (e) {
@@ -90,7 +97,10 @@ router.get('/preview/:token', async (req, res) => {
     // optionally enforce expiry
     // if (article.preview_token_expires_at && new Date(article.preview_token_expires_at) < new Date())
     //   return res.status(410).json({ message: 'Preview expired' })
-    res.json(article)
+    const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
+    const words = sanitize(article.content).trim().split(/\s+/).filter(Boolean).length
+    const reading_time = Math.max(1, Math.round(words / 200))
+    res.json({ ...article, reading_time })
   } catch (e) {
     console.error('preview fetch error', e)
     res.status(500).json({ message: 'Failed to load preview' })
@@ -144,7 +154,12 @@ router.get('/:id', authOptional, async (req, res) => {
         if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
       }
     }
-    res.json(article)
+    // Best-effort: record a view and attach reading_time
+    try { await supabase.from('article_views').insert({ id: randomUUID(), article_id: id, user_id: req.user?.id || null, created_at: new Date() }) } catch {}
+    const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
+    const words = sanitize(article.content).trim().split(/\s+/).filter(Boolean).length
+    const reading_time = Math.max(1, Math.round(words / 200))
+    res.json({ ...article, reading_time })
   } catch (e) {
     console.error(e)
     res.status(500).json({ message: 'Failed to fetch article' })
@@ -394,7 +409,12 @@ router.get('/slug/:slug', authOptional, async (req, res) => {
         if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
       }
     }
-    res.json(article)
+    // Best-effort: record a view and attach reading_time
+    try { await supabase.from('article_views').insert({ id: randomUUID(), article_id: article.id, user_id: req.user?.id || null, created_at: new Date() }) } catch {}
+    const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
+    const words = sanitize(article.content).trim().split(/\s+/).filter(Boolean).length
+    const reading_time = Math.max(1, Math.round(words / 200))
+    res.json({ ...article, reading_time })
   } catch (e) {
     res.status(500).json({ message: 'Failed to fetch by slug' })
   }

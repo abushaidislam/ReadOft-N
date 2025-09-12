@@ -5,7 +5,11 @@ import { useAuth } from '../state/AuthContext.jsx'
 export default function ArticleCard({ article, index = 0 }) {
   const created = article.created_at ? new Date(article.created_at).toLocaleDateString() : ''
   const excerpt = (article.content || '').replace(/[#*_>`]/g, '').slice(0, 160)
-  const { request, auth } = useAuth()
+  const { request, auth, ui } = useAuth()
+  const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
+  const readingTime = Number.isFinite(article.reading_time) && article.reading_time > 0
+    ? article.reading_time
+    : Math.max(1, Math.round(sanitize(article.content).trim().split(/\s+/).filter(Boolean).length / 200))
   const [likeCount, setLikeCount] = useState(article.like_count ?? 0)
   const [liked, setLiked] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -24,11 +28,11 @@ export default function ArticleCard({ article, index = 0 }) {
         if (!mounted) return
         if (ls.status === 'fulfilled') setLiked(Boolean(ls.value?.liked))
         if (bs.status === 'fulfilled') setSaved(Boolean(bs.value?.saved))
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.debug('article card status load failed', e) }
     }
     fetchStatus().catch(() => {})
     return () => { mounted = false }
-  }, [article.id, auth.user])
+  }, [article.id, auth.user, request])
 
   const like = async () => {
     if (busy || liked) return
@@ -39,7 +43,7 @@ export default function ArticleCard({ article, index = 0 }) {
         setLiked(true)
         setLikeCount((c) => c + 1)
       }
-    } catch {} finally { setBusy(false) }
+    } catch (e) { if (import.meta.env.DEV) console.debug('article like failed', e) } finally { setBusy(false) }
   }
 
   const toggleSave = async () => {
@@ -53,7 +57,18 @@ export default function ArticleCard({ article, index = 0 }) {
         const r = await request(`/bookmarks/${article.id}`, { method: 'DELETE' })
         if (r && r.saved === false) setSaved(false)
       }
-    } catch {} finally { setBusy(false) }
+    } catch (e) { if (import.meta.env.DEV) console.debug('toggle save failed', e) } finally { setBusy(false) }
+  }
+  const share = async () => {
+    try {
+      const link = article.slug ? `${location.origin}/a/${article.slug}` : `${location.origin}/article/${article.id}`
+      if (navigator.share) {
+        await navigator.share({ title: article.title, text: `${article.title} — ${readingTime} min read`, url: link })
+      } else {
+        await navigator.clipboard.writeText(link)
+        ui?.notify?.('Link copied', 'success')
+      }
+    } catch (e) { if (import.meta.env.DEV) console.debug('share failed', e) }
   }
   return (
     <article className="card card-animated" style={{ animationDelay: `${(index % 12) * 30}ms` }}>
@@ -63,7 +78,7 @@ export default function ArticleCard({ article, index = 0 }) {
       <h3 className="card-title">
         <Link to={article.slug ? `/a/${article.slug}` : `/article/${article.id}`}>{article.title}</Link>
       </h3>
-      <p className="muted">{created} • {likeCount} likes</p>
+      <p className="muted">{created} • {readingTime} min read • {likeCount} likes</p>
       <p className="line-clamp">{excerpt}{excerpt.length >= 160 ? '…' : ''}</p>
       <div className="card-actions">
         <button className={`icon-btn ${liked ? 'active' : ''}`} onClick={like} disabled={busy || liked}>
@@ -71,6 +86,9 @@ export default function ArticleCard({ article, index = 0 }) {
         </button>
         <button className={`icon-btn ${saved ? 'active' : ''}`} onClick={toggleSave} disabled={busy}>
           {saved ? '🔖 Saved' : '📎 Save'}
+        </button>
+        <button className="icon-btn" onClick={share}>
+          🔗 Share
         </button>
       </div>
       <div className="chips" style={{ marginTop: 8, alignItems: 'center' }}>

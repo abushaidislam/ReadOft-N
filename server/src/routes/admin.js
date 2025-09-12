@@ -9,12 +9,33 @@ const router = express.Router()
 // List users (basic info)
 router.get('/users', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
   try {
-    const { data, error } = await supabase.from('users').select('id, email, name, role, is_banned, created_at').order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, is_banned, is_verified, created_at')
+      .order('created_at', { ascending: false })
     if (error) throw error
     res.json(data)
   } catch (e) {
     console.error(e)
     res.status(500).json({ message: 'Failed to list users' })
+  }
+})
+
+// Verify/unverify user (for author badges)
+router.put('/users/:id/verify', authRequired, requireRole(ROLES.ADMIN), async (req, res) => {
+  try {
+    const verified = !!req.body?.verified
+    const { data, error } = await supabase
+      .from('users')
+      .update({ is_verified: verified })
+      .eq('id', req.params.id)
+      .select('id, name, is_verified')
+      .single()
+    if (error) throw error
+    res.json(data)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Failed to update verification' })
   }
 })
 
@@ -142,7 +163,7 @@ router.get('/analytics/overview', authRequired, requireRole(ROLES.ADMIN), async 
   try {
     const [users, articles, comments, views] = await Promise.all([
       supabase.from('users').select('id, created_at, role').order('created_at', { ascending: false }),
-      supabase.from('articles').select('id, created_at, status, views_count').order('created_at', { ascending: false }),
+      supabase.from('articles').select('id, created_at, status').order('created_at', { ascending: false }),
       supabase.from('comments').select('id, created_at').order('created_at', { ascending: false }),
       supabase.from('article_views').select('id, created_at').order('created_at', { ascending: false })
     ])
@@ -186,9 +207,9 @@ router.get('/analytics/overview', authRequired, requireRole(ROLES.ADMIN), async 
 router.get('/analytics/charts', authRequired, requireRole(ROLES.ADMIN), async (_req, res) => {
   try {
     const [users, articles, views] = await Promise.all([
-      supabase.from('users').select('created_at').order('created_at', { ascending: true }),
-      supabase.from('articles').select('created_at, status').order('created_at', { ascending: true }),
-      supabase.from('article_views').select('created_at').order('created_at', { ascending: true })
+      supabase.from('users').select('created_at, role').order('created_at', { ascending: true }),
+      supabase.from('articles').select('id, title, slug, created_at, status, author_id').order('created_at', { ascending: true }),
+      supabase.from('article_views').select('article_id, created_at').order('created_at', { ascending: true })
     ])
 
     // Generate last 30 days data
@@ -210,13 +231,26 @@ router.get('/analytics/charts', authRequired, requireRole(ROLES.ADMIN), async (_
       })
     }
 
-    // Top articles by views
-    const { data: topArticles } = await supabase
-      .from('articles')
-      .select('id, title, slug, views_count, author:users!articles_author_id_fkey(name)')
-      .eq('status', 'published')
-      .order('views_count', { ascending: false })
-      .limit(10)
+    // Top articles by views (compute from article_views)
+    const viewCounts = {}
+    for (const v of (views.data || [])) {
+      const aid = v.article_id
+      if (!aid) continue
+      viewCounts[aid] = (viewCounts[aid] || 0) + 1
+    }
+    // Join with published articles
+    const published = (articles.data || []).filter(a => a.status === 'published')
+    const joined = published.map(a => ({ id: a.id, title: a.title, slug: a.slug, author_id: a.author_id, views_count: viewCounts[a.id] || 0 }))
+    joined.sort((a, b) => (b.views_count - a.views_count))
+    const topJoined = joined.slice(0, 10)
+    // Fetch author names for display
+    const authorIds = Array.from(new Set(topJoined.map(a => a.author_id).filter(Boolean)))
+    let authorMap = {}
+    if (authorIds.length) {
+      const { data: authorRows } = await supabase.from('users').select('id, name').in('id', authorIds)
+      authorMap = Object.fromEntries((authorRows || []).map(r => [r.id, r.name]))
+    }
+    const topArticles = topJoined.map(a => ({ id: a.id, title: a.title, slug: a.slug, views_count: a.views_count, author: { name: authorMap[a.author_id] || 'Unknown' } }))
 
     // User role distribution
     const roleDistribution = {

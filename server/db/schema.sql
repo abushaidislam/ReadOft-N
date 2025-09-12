@@ -19,6 +19,9 @@ alter table users add column if not exists avatar_path text not null default '';
 -- Banned flag
 alter table users add column if not exists is_banned boolean not null default false;
 
+-- Verified badge support
+alter table users add column if not exists is_verified boolean not null default false;
+
 -- Articles
 create table if not exists articles (
   id uuid primary key,
@@ -116,6 +119,15 @@ create table if not exists article_reads (
   primary key (user_id, article_id)
 );
 create index if not exists idx_reads_user_last on article_reads(user_id, last_read_at desc);
+
+-- Page view events (for analytics)
+create table if not exists article_views (
+  id uuid primary key,
+  article_id uuid not null references articles(id) on delete cascade,
+  user_id uuid null references users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_article_views_article on article_views(article_id, created_at desc);
 
 -- Comments with threaded replies
 create table if not exists comments (
