@@ -392,8 +392,15 @@ h1,h2,h3 { margin: 10px 0 }
 .toast.info { border-color: rgba(99,102,241,.5) }
 
 /* Modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; z-index: 70; padding: 16px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; z-index: 120; padding: 16px; }
 .modal-card { width: min(900px, 96vw); max-height: 80vh; overflow: auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 20px 40px rgba(0,0,0,.4); }
+
+/* Media picker grid */
+.media-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:12px; }
+.media-card { border:1px solid var(--border); background:#0f1320; border-radius:10px; overflow:hidden; padding:0; cursor:pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.media-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.25) }
+.media-card img { width:100%; height:120px; object-fit:cover; display:block }
+[data-theme='light'] .media-card { background:#fff }
 
 /* Drawer (right-aligned) */
 .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(1px); display:flex; align-items:stretch; justify-content:flex-end; z-index: 70; padding: 0; }

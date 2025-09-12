@@ -65,6 +65,60 @@ router.post('/article-thumbnail', authRequired, requireRole(ROLES.AUTHOR, ROLES.
   }
 })
 
+// List existing article media for the current user
+router.get('/article-media', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (req, res) => {
+  try {
+    const bucket = 'article-media'
+    await ensureBucketPublic(bucket)
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '60', 10)))
+    const prefix = String(req.user.id || '').trim()
+    const { data: files, error } = await supabase.storage.from(bucket).list(prefix, {
+      limit,
+      offset: 0,
+      sortBy: { column: 'name', order: 'desc' },
+    })
+    if (error) throw error
+    const items = (files || [])
+      .filter(f => f && f.name && !f.name.endsWith('/'))
+      .map((f) => {
+        const path = `${prefix}/${f.name}`
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path)
+        return { name: f.name, path, url: pub.publicUrl, updated_at: f.updated_at || null, created_at: f.created_at || null, size: f.metadata?.size || null }
+      })
+    res.json({ items })
+  } catch (e) {
+    console.error('List media error:', e)
+    res.status(500).json({ message: e?.message || 'Failed to list media' })
+  }
+})
+
+// List existing thumbnails for the current user (optional)
+router.get('/thumbnails', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), async (req, res) => {
+  try {
+    const bucket = 'thumbnails'
+    await ensureBucketPublic(bucket)
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '60', 10)))
+    const prefix = String(req.user.id || '').trim()
+    const { data: files, error } = await supabase.storage.from(bucket).list(prefix, {
+      limit,
+      offset: 0,
+      sortBy: { column: 'name', order: 'desc' },
+    })
+    if (error) throw error
+    const items = (files || [])
+      .filter(f => f && f.name && !f.name.endsWith('/'))
+      .map((f) => {
+        const path = `${prefix}/${f.name}`
+        const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path)
+        return { name: f.name, path, url: pub.publicUrl, updated_at: f.updated_at || null, created_at: f.created_at || null, size: f.metadata?.size || null }
+      })
+    res.json({ items })
+  } catch (e) {
+    console.error('List thumbnails error:', e)
+    res.status(500).json({ message: e?.message || 'Failed to list thumbnails' })
+  }
+})
+
 // Avatar upload for any logged-in user
 router.post('/avatar', authRequired, upload.single('file'), async (req, res) => {
   try {

@@ -21,6 +21,11 @@ export default function Editor() {
   const [articleId, setArticleId] = useState(id || '')
   const [revisions, setRevisions] = useState([])
   const editorRef = useRef(null)
+  // Media library state
+  const [mediaOpen, setMediaOpen] = useState(false)
+  const [mediaItems, setMediaItems] = useState([])
+  const [mediaLoading, setMediaLoading] = useState(false)
+  const [mediaMode, setMediaMode] = useState('inline') // inline | thumb
 
   function slugify(input) {
     return String(input || '')
@@ -78,7 +83,7 @@ export default function Editor() {
           setSavingNote('Autosaved')
           request(`/articles/${articleId}/revisions`, { noGlobalLoading: true }).then(setRevisions).catch(()=>{})
         }
-      } catch {}
+      } catch (e) { if (import.meta.env.DEV) console.debug('editor autosave failed', e) }
     }, 10000)
     return () => clearInterval(t)
   }, [articleId, form.title, form.content, form.tags, form.categories, form.status, slug])
@@ -100,7 +105,7 @@ export default function Editor() {
         })
         if (!res.ok) {
           let msg = 'Thumbnail upload failed'
-          try { const j = await res.json(); if (j?.message) msg = j.message } catch {}
+          try { const j = await res.json(); if (j?.message) msg = j.message } catch (e) { if (import.meta.env.DEV) console.debug('thumb upload parse failed', e) }
           throw new Error(msg)
         }
         const up = await res.json()
@@ -145,7 +150,6 @@ export default function Editor() {
     const ta = editorRef.current
     if (!ta) return
     const start = ta.selectionStart || 0
-    const end = ta.selectionEnd || 0
     const content = form.content
     const lineStart = content.lastIndexOf('\n', start - 1) + 1
     const next = content.slice(0, lineStart) + prefix + content.slice(lineStart)
@@ -171,7 +175,7 @@ export default function Editor() {
     const ta = editorRef.current
     const urls = []
     for (const f of files) {
-      try { const url = await uploadOne(f); urls.push(url) } catch {}
+      try { const url = await uploadOne(f); urls.push(url) } catch (e) { if (import.meta.env.DEV) console.debug('image upload failed', e) }
     }
     if (urls.length === 0) return
     const md = urls.map((u) => `\n\n![image](${u})`).join('') + '\n\n'
@@ -189,6 +193,41 @@ export default function Editor() {
     const files = []
     for (const it of items) { if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f) } }
     if (files.length) { e.preventDefault(); insertImages(files) }
+  }
+
+  // Open media library modal and load existing images for selection
+  async function openMedia(mode = 'inline') {
+    try {
+      setMediaMode(mode)
+      setMediaOpen(true)
+      setMediaLoading(true)
+      const path = mode === 'thumb' ? '/uploads/thumbnails?limit=100' : '/uploads/article-media?limit=100'
+      const r = await request(path, { noGlobalLoading: true })
+      setMediaItems(Array.isArray(r?.items) ? r.items : [])
+    } catch (e) {
+      ui?.notify?.(e?.message || 'Failed to load media', 'error')
+      setMediaItems([])
+    } finally {
+      setMediaLoading(false)
+    }
+  }
+
+  // Insert picked image or set as thumbnail
+  function pickMedia(item) {
+    if (!item?.url) return
+    if (mediaMode === 'thumb') {
+      setForm((f) => ({ ...f, thumbnail_url: item.url, thumbnail_path: item.path || '' }))
+      setMediaOpen(false)
+      return
+    }
+    const ta = editorRef.current
+    const start = ta?.selectionStart || form.content.length
+    const before = form.content.slice(0, start)
+    const md = `\n\n![image](${item.url})\n\n`
+    const after = form.content.slice(start)
+    setForm({ ...form, content: before + md + after })
+    setMediaOpen(false)
+    setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = start + md.length } }, 0)
   }
 
   function insertLink() {
@@ -236,7 +275,7 @@ export default function Editor() {
     const before = form.content.slice(0, start)
     const sel = form.content.slice(start, end)
     const after = form.content.slice(end)
-    const cleaned = sel.replace(/[\*\_\~\`]+/g, '').replace(/<\/?u>/g,'')
+    const cleaned = sel.replace(/[*_~`]+/g, '').replace(/<\/?u>/g,'')
     setForm({ ...form, content: before + cleaned + after })
     setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = start; ta.selectionEnd = start + cleaned.length } }, 0)
   }
@@ -302,7 +341,8 @@ export default function Editor() {
           <button type="button" className="btn" onClick={insertCodeBlock}>Code Block</button>
           <button type="button" className="btn" onClick={clearFormatting}>Clear</button>
           <input id="media-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={handleMediaSelect} />
-          <button type="button" className="btn btn-primary" onClick={() => document.getElementById('media-input').click()}>Add Image</button>
+          <button type="button" className="btn btn-primary" onClick={() => document.getElementById('media-input').click()}>Upload Image</button>
+          <button type="button" className="btn" onClick={() => openMedia('inline')}>From Library</button>
         </div>
         <div>
           <label>Thumbnail image</label>
@@ -312,6 +352,9 @@ export default function Editor() {
               <img alt="thumbnail" src={thumbFile ? URL.createObjectURL(thumbFile) : form.thumbnail_url} style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />
             </div>
           )}
+          <div style={{ marginTop: 8 }}>
+            <button type="button" className="btn" onClick={() => openMedia('thumb')}>Choose from Library</button>
+          </div>
         </div>
         <textarea
           ref={editorRef}
@@ -369,7 +412,7 @@ export default function Editor() {
                   try { await navigator.clipboard.writeText(url.startsWith('http') ? url : (location.origin + url)) } catch {}
                   ui.notify('Preview link copied to clipboard', 'success')
                 }
-              } catch {}
+              } catch (e) { if (import.meta.env.DEV) console.debug('get preview link failed', e) }
             }}>Get Preview Link</button>
             <span className="muted" style={{ fontSize: '.85rem' }}>Share this link to preview your draft without login.</span>
           </div>
@@ -407,6 +450,33 @@ export default function Editor() {
           )}
         </div>
       )}
-    </div>
-  )
+    {mediaOpen && (
+      <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setMediaOpen(false)}>
+        <div className="modal-card" onClick={(e)=>e.stopPropagation()}>
+          <div className="page-head" style={{ marginBottom: 8 }}>
+            <h3 style={{ margin: 0 }}>{mediaMode === 'thumb' ? 'Choose Thumbnail' : 'Media Library'}</h3>
+            <button className="btn" onClick={() => setMediaOpen(false)}>Close</button>
+          </div>
+          {mediaLoading ? (
+            <div className="media-grid skeleton">
+              {Array.from({ length: 12 }).map((_,i)=> (
+                <div key={i} className="media-card"><div className="skeleton-thumb" style={{ height: 120 }} /></div>
+              ))}
+            </div>
+          ) : mediaItems.length === 0 ? (
+            <div className="muted" style={{ padding:'24px 0' }}>No media found.</div>
+          ) : (
+            <div className="media-grid">
+              {mediaItems.map((it) => (
+                <button key={it.path} className="media-card" onClick={() => pickMedia(it)} title={it.name}>
+                  <img src={it.url} alt={it.name} loading="lazy" decoding="async" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+)
 }
