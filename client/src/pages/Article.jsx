@@ -24,6 +24,12 @@ export default function Article() {
   const [progress, setProgress] = useState(0)
   const [related, setRelated] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
+  // TL;DR summary state
+  const [summary, setSummary] = useState('')
+  const [summaryBusy, setSummaryBusy] = useState(false)
+  const [summaryVisible, setSummaryVisible] = useState(false)
+  const summaryLevel = 'medium' // fixed level
+  const [summaryLang, setSummaryLang] = useState(() => (navigator.language?.startsWith('bn') ? 'Bengali' : 'English'))
   const [toc, setToc] = useState([])
   const startRef = useRef(0)
   const articleIdRef = useRef(null)
@@ -282,6 +288,70 @@ export default function Article() {
       .replace(/\[(.*?)\]\((.*?)\)/g, '$1') // links -> label
       .replace(/[#*_>`]/g, '') // markdown markers
   }, [article?.content])
+
+  // removed local extractive summarizer; using AI instead
+
+  const copySummary = async () => {
+    try {
+      if (!summary) return
+      await navigator.clipboard.writeText(summary)
+      try { ui?.notify?.('Summary copied', 'success') } catch (e2) { if (import.meta.env.DEV) console.debug('notify summary failed', e2) }
+    } catch (e) { if (import.meta.env.DEV) console.debug('copy summary failed', e) }
+  }
+
+  // Call server-side Gemini summarization
+  const summarizeWithAI = async (lvl) => {
+    const level = lvl || summaryLevel
+    try {
+      setSummaryBusy(true)
+      const resp = await request('/ai/summarize', {
+        method: 'POST',
+        body: JSON.stringify({ text: plainText, level, lang: summaryLang }),
+        noGlobalLoading: true,
+      })
+      if (resp?.summary) {
+        setSummary(resp.summary)
+        const ver = article?.updated_at || article?.created_at
+        if (article?.id && ver) writeSummaryCache(article.id, summaryLang, { summary: resp.summary, updated_at: ver, saved_at: Date.now() })
+      }
+      else ui?.notify?.('AI did not return a summary', 'error')
+    } catch (e) { ui?.notify?.(e?.message || 'AI summarization failed', 'error') }
+    finally { setSummaryBusy(false) }
+  }
+
+  const onSummarizeClick = async () => {
+    if (summaryVisible) { setSummaryVisible(false); return }
+    setSummaryVisible(true)
+    if (!summary) await summarizeWithAI()
+  }
+
+  // Local cache for summaries (per-article + updated_at)
+  const readSummaryCache = useCallback((aid, lang) => {
+    try { return JSON.parse(localStorage.getItem(`ai-summary:${aid}:${lang}`) || 'null') } catch { return null }
+  }, [])
+  const writeSummaryCache = useCallback((aid, lang, payload) => {
+    try { localStorage.setItem(`ai-summary:${aid}:${lang}`, JSON.stringify(payload)) } catch (e) { if (import.meta.env.DEV) console.debug('writeSummaryCache failed', e) }
+  }, [])
+  // Load cached summary on article change
+  useEffect(() => {
+    if (!article?.id) return
+    const cache = readSummaryCache(article.id, summaryLang)
+    const ver = article.updated_at || article.created_at
+    if (cache && cache.updated_at === ver && cache.summary) setSummary(cache.summary)
+    else setSummary('')
+  }, [article?.id, article?.updated_at, article?.created_at, readSummaryCache, summaryLang])
+
+  // When language changes and panel is open, auto-fetch if not in cache
+  useEffect(() => {
+    if (!article?.id) return
+    const ver = article.updated_at || article.created_at
+    const cache = readSummaryCache(article.id, summaryLang)
+    const has = cache && cache.updated_at === ver && cache.summary
+    if (!has && summaryVisible && !summaryBusy) {
+      summarizeWithAI()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaryLang])
 
   // Init TTS support + cleanup on unmount
   useEffect(() => {
@@ -662,17 +732,52 @@ export default function Article() {
               </button>
             </div>
           )}
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span className="muted">AI</span>
+            <button className={`btn ${summaryBusy ? 'loading' : ''}`} onClick={onSummarizeClick} disabled={summaryBusy}>
+              {summaryVisible ? 'Hide Summary' : 'Summary'}
+            </button>
+          </div>
         </div>
       </div>
       <div className={`markdown-layout ${layoutWidth} ${focusMode ? 'focus' : ''}`} style={{ display: 'grid', gridTemplateColumns: (!focusMode && toc.length) ? 'minmax(0,1fr) 280px' : '1fr', gap: 24 }}>
         <div className="markdown" style={{ fontSize: `${fontScale}rem`, maxWidth: layoutWidth === 'narrow' ? '740px' : 'none', fontFamily }}>
+          {summaryVisible && (
+            <div className="section-card" style={{ marginBottom: 16 }}>
+              <div className="page-head" style={{ marginBottom: 8, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                <h4 style={{ margin: 0 }}>Summary</h4>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div className="btn-group" style={{ display:'inline-flex', gap:8 }}>
+                    <button className={`btn ${summaryLang==='English' ? 'active' : ''}`} onClick={()=> setSummaryLang('English')} disabled={summaryBusy}>EN</button>
+                    <button className={`btn ${summaryLang==='Bengali' ? 'active' : ''}`} onClick={()=> setSummaryLang('Bengali')} disabled={summaryBusy}>BN</button>
+                  </div>
+                  <button className={`btn ${summaryBusy ? 'loading' : ''}`} onClick={()=> summarizeWithAI()} disabled={summaryBusy}>Regenerate</button>
+                  <button className="btn" onClick={copySummary} disabled={!summary || summaryBusy}>Copy</button>
+                </div>
+              </div>
+              {summaryBusy ? (
+                <div className="skeleton" aria-hidden="true">
+                  <div className="skeleton-line long" style={{ marginBottom: 6 }} />
+                  <div className="skeleton-line long" style={{ marginBottom: 6 }} />
+                  <div className="skeleton-line medium" />
+                </div>
+              ) : summary ? (
+                <div className="markdown">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeSanitize, mdSchema]]}>
+                    {summary}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div style={{ color: 'var(--muted)' }}>Click Summary to generate an AI summary.</div>
+              )}
+            </div>
+          )}
           <ReactMarkdown remarkPlugins={[remarkGfm, remarkSlug]} rehypePlugins={[[rehypeSanitize, mdSchema], rehypeHighlight]} components={{ code: CodeRenderer }}>
           {article.content || ''}
           </ReactMarkdown>
         </div>
         {!focusMode && toc.length > 0 && (
           <aside className="toc" style={{ position: 'sticky', top: 88, alignSelf: 'start' }}>
-            <div className="section-card">
               <h4 style={{marginTop:0}}>Contents</h4>
               <nav aria-label="Table of contents">
                 <ul style={{ listStyle:'none', padding:0, margin:0 }}>
@@ -690,7 +795,6 @@ export default function Article() {
                   ))}
                 </ul>
               </nav>
-            </div>
           </aside>
         )}
         {/* Author box under content */}
@@ -721,6 +825,7 @@ export default function Article() {
           <Comments articleId={article.id} onCountChange={setCommentCount} refreshKey={commentsKey} focusInputKey={focusCommentKey} />
         </Suspense>
       )}
+      {/* No modal; summary is inline above content */}
       {(relatedLoading || related.length > 0) && (
         <section style={{ marginTop: 24 }}>
           <h3 style={{ marginTop: 0 }}>You might also like</h3>

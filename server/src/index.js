@@ -20,6 +20,7 @@ import bookmarksRoutes from './routes/bookmarks.js'
 import searchRoutes from './routes/search.js'
 import seoRoutes from './routes/seo.js'
 import reportsRoutes from './routes/reports.js'
+import aiRoutes from './routes/ai.js'
 import { startPublishScheduler } from './utils/scheduler.js'
 
 const app = express()
@@ -58,6 +59,7 @@ app.use('/api', bookmarksRoutes)
 app.use('/api', notificationsRoutes)
 app.use('/api', searchRoutes)
 app.use('/api', reportsRoutes)
+app.use('/api/ai', aiRoutes)
 app.use('/', seoRoutes)
 
 app.use((err, _req, res, _next) => {
