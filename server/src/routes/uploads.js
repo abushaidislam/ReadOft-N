@@ -70,25 +70,31 @@ router.post('/rename', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), asy
   }
 })
 async function ensureBucketPublic(name) {
-  // Try to get; if not found or error, attempt to create. Ignore "already exists".
+  // Allowed MIME types per bucket
+  const imageMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
+  const videoMimes = ['video/mp4', 'video/webm']
+  const paramsByBucket = () => {
+    if (name === 'videos') return { allowedMimeTypes: videoMimes, fileSizeLimit: 50 * 1024 * 1024 }
+    if (['article-media', 'thumbnails', 'avatars'].includes(name)) return { allowedMimeTypes: imageMimes, fileSizeLimit: 5 * 1024 * 1024 }
+    return { fileSizeLimit: 5 * 1024 * 1024 }
+  }
+
+  // Try to get; if not found or error, attempt to create (idempotent).
   const { data, error } = await supabase.storage.getBucket(name)
   if (data && !error) {
-    // Ensure bucket is public if it already exists
-    if (data.public !== true) {
-      try {
-        await supabase.storage.updateBucket(name, {
-          public: true,
-          fileSizeLimit: 5 * 1024 * 1024,
-        })
-      } catch (e) {
-        // best-effort; continue
-      }
+    try {
+      await supabase.storage.updateBucket(name, {
+        public: true,
+        ...paramsByBucket(),
+      })
+    } catch (e) {
+      // best-effort; continue even if update fails (e.g., insufficient perms)
     }
     return
   }
   const { error: createErr } = await supabase.storage.createBucket(name, {
     public: true,
-    fileSizeLimit: 5 * 1024 * 1024, // ~5MB
+    ...paramsByBucket(),
   })
   if (createErr && !/already exists|exists/i.test(createErr.message || '')) {
     throw createErr
