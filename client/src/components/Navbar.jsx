@@ -10,7 +10,7 @@ export default function Navbar() {
   const [notifFilter, setNotifFilter] = useState('all') // all | unread
   const [pfpOk, setPfpOk] = useState(true)
   const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem('theme') || 'dark' } catch { return 'dark' }
+    try { return localStorage.getItem('theme') || 'light' } catch { return 'light' }
   })
 
   const onLogout = () => {
@@ -32,6 +32,9 @@ export default function Navbar() {
     try { localStorage.setItem('theme', theme) } catch (e) { if (import.meta.env.DEV) console.debug('persist theme failed', e) }
     const root = document.documentElement
     root.setAttribute('data-theme', theme)
+    // Ensure Tailwind's `dark:` variant works alongside custom CSS theme
+    if (theme === 'dark') root.classList.add('dark')
+    else root.classList.remove('dark')
   }, [theme])
 
   return (

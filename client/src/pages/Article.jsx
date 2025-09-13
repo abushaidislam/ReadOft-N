@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext.jsx'
 import useMeta from '../utils/useMeta.js'
 import ReactMarkdown from 'react-markdown'
@@ -16,7 +16,8 @@ import ArticleSkeleton from '../components/ArticleSkeleton.jsx'
 
 export default function Article() {
   const { id, slug } = useParams()
-  const { request, ui } = useAuth()
+  const navigate = useNavigate()
+  const { request, ui, auth } = useAuth()
   const requestRef = useRef(request)
   useEffect(() => { requestRef.current = request }, [request])
   const [article, setArticle] = useState(null)
@@ -450,6 +451,7 @@ export default function Article() {
   }
   const toggleSave = async () => {
     if (saveBusy) return
+    if (!auth?.user) { try { ui?.notify?.('Please login to save', 'error') } catch {} ; navigate('/login'); return }
     setSaveBusy(true)
     try {
       if (!saved) {
@@ -459,7 +461,10 @@ export default function Article() {
         const r = await request(`/bookmarks/${article.id}`, { method: 'DELETE', noGlobalLoading: true })
         if (r && r.saved === false) setSaved(false)
       }
-    } catch (e) { if (import.meta.env.DEV) console.debug('toggle save failed', e) } finally { setSaveBusy(false) }
+    } catch (e) {
+      if (import.meta.env.DEV) console.debug('toggle save failed', e)
+      try { ui?.notify?.(e?.message || 'Failed to update bookmark', 'error') } catch {}
+    } finally { setSaveBusy(false) }
   }
   const copyLink = async () => {
     try {

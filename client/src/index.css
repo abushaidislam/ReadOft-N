@@ -1,3 +1,4 @@
+@import "tailwindcss";
 :root { --bg: #0b0c10; --card: #111318; --text: #e5e7eb; --muted: #9aa3b2; --primary: #6366f1; --border: #1f2530; --accent: #10b981; }
 * { box-sizing: border-box }
 html, body, #root { height: 100% }
@@ -289,6 +290,28 @@ h1,h2,h3 { margin: 10px 0 }
 @keyframes fadeUp { from { opacity:0; transform: translateY(6px) } to { opacity:1; transform: none } }
 .thumb { width:100%; height:160px; object-fit:cover; border-radius:8px; margin-bottom:8px }
 .hero-thumb { width:100%; height:360px; object-fit:cover; border-radius:12px; margin-bottom:16px; border:1px solid var(--border) }
+
+/* ArticleCard (Tailwind component) – ensure theme-friendly colors even without utilities */
+.article-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+[data-theme='light'] .article-card { background: #f8f8f8; border-color: #e5e7eb; }
+[data-theme='dark'] .article-card { background: #0f1320; border-color: var(--border); }
+.article-card .meta { color: #4b5563; }
+[data-theme='dark'] .article-card .meta { color: #a1a1aa; }
+/* Author name color should follow theme */
+.article-card .author-name { color: var(--text); }
+/* Author/Category badges: angular (square corners), theme-aware */
+.article-card .author-name { display:inline-block; background:#f3f4f6; border:1px solid #e5e7eb; color:#111827; padding:2px 8px; border-radius:0 }
+[data-theme='dark'] .article-card .author-name { background:#18181b; border-color:#3f3f46; color:#e5e7eb }
+.article-card .category-chip { background:#f3f4f6; border:1px solid #e5e7eb; color:#374151; border-radius:0; text-transform: none; }
+[data-theme='light'] .article-card .category-chip { background:#f3f4f6; border-color: #e5e7eb; color: #374151 }
+[data-theme='dark'] .article-card .category-chip { background:#18181b; border-color:#3f3f46; color:#e5e7eb }
+.article-card .category-chip:hover { filter: brightness(0.98); }
+[data-theme='dark'] .article-card .category-chip:hover { filter: brightness(1.08); }
+/* Save/Share action buttons: force readable colors per theme */
+.article-card .action-btn { background:#f3f4f6; border:1px solid #e5e7eb; color:#111827; }
+.article-card .action-btn:hover { background:#eef2f7; }
+[data-theme='dark'] .article-card .action-btn { background:#18181b; border-color:#3f3f46; color:#e5e7eb; }
+[data-theme='dark'] .article-card .action-btn:hover { background:#202024; }
 
 /* Hero */
 .hero { position:relative; display:flex; align-items:center; padding:0; overflow:hidden; min-height: clamp(520px, 80vh, 980px); }
