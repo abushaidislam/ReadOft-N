@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import rehypeHighlight from 'rehype-highlight'
+import { LayoutDashboard, Users as UsersIcon, Folder, Newspaper, ClipboardCheck, Flag, Mail } from 'lucide-react'
 
 export default function Admin() {
   const { request, ui } = useAuth()
@@ -950,15 +951,33 @@ export default function Admin() {
       <div className="admin-layout">
         <aside className="admin-sidebar">
         <nav className="admin-nav" aria-label="Admin sections">
-          <button className={`admin-link ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')}>Dashboard</button>
-          <button className={`admin-link ${tab==='analytics'?'active':''}`} onClick={()=>setTab('analytics')}>Analytics</button>
-          <button className={`admin-link ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>Users</button>
-          <button className={`admin-link ${tab==='pending'?'active':''}`} onClick={()=>setTab('pending')}>Pending Posts {pending.length?`(${pending.length})`:''}</button>
-          <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')}>Categories</button>
-          <button className={`admin-link ${tab==='applications'?'active':''}`} onClick={()=>setTab('applications')}>Applications {apps.length?`(${apps.length})`:''}</button>
-          <button className={`admin-link ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')}>Reports {reports.filter(r=>r.status==='open').length?`(${reports.filter(r=>r.status==='open').length})`:''}</button>
-          <button className={`admin-link ${tab==='newsletter'?'active':''}`} onClick={()=>setTab('newsletter')}>Newsletter</button>
-          <button className={`admin-link ${tab==='contact'?'active':''}`} onClick={()=>setTab('contact')}>Contact</button>
+          <button className={`admin-link ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <LayoutDashboard size={16} /> <span>Dashboard</span>
+          </button>
+          <button className={`admin-link ${tab==='analytics'?'active':''}`} onClick={()=>setTab('analytics')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <LayoutDashboard size={16} /> <span>Analytics</span>
+          </button>
+          <button className={`admin-link ${tab==='users'?'active':''}`} onClick={()=>setTab('users')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <UsersIcon size={16} /> <span>Users</span>
+          </button>
+          <button className={`admin-link ${tab==='pending'?'active':''}`} onClick={()=>setTab('pending')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <Newspaper size={16} /> <span>Pending Posts {pending.length?`(${pending.length})`:''}</span>
+          </button>
+          <button className={`admin-link ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <Folder size={16} /> <span>Categories</span>
+          </button>
+          <button className={`admin-link ${tab==='applications'?'active':''}`} onClick={()=>setTab('applications')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <ClipboardCheck size={16} /> <span>Applications {apps.length?`(${apps.length})`:''}</span>
+          </button>
+          <button className={`admin-link ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <Flag size={16} /> <span>Reports {reports.filter(r=>r.status==='open').length?`(${reports.filter(r=>r.status==='open').length})`:''}</span>
+          </button>
+          <button className={`admin-link ${tab==='newsletter'?'active':''}`} onClick={()=>setTab('newsletter')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <Newspaper size={16} /> <span>Newsletter</span>
+          </button>
+          <button className={`admin-link ${tab==='contact'?'active':''}`} onClick={()=>setTab('contact')} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <Mail size={16} /> <span>Contact</span>
+          </button>
           <div className="muted" style={{ margin:'12px 4px 4px', fontSize:'.85rem' }}>Quick links</div>
           <Link className="admin-link" to="/editor">New Post</Link>
           <Link className="admin-link" to="/admin/library">Library</Link>

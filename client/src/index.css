@@ -728,6 +728,22 @@ textarea[placeholder^="Write your content"] { font-family: ui-monospace, SFMono-
 [data-theme='light'] .admin-link { background:#f3f4f6 }
 [data-theme='light'] .admin-link.active { background:#e5e7eb }
 .admin-link:hover { filter: brightness(1.04) }
+/* Admin header bar */
+.admin-header-bar { position: sticky; top: 56px; z-index: 12; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; display:flex; align-items:center; justify-content:space-between }
+[data-theme='light'] .admin-header-bar { background: #ffffff }
+.admin-breadcrumbs { display:flex; align-items:center; gap:8px; color: var(--muted) }
+.admin-breadcrumbs .crumb { color: var(--muted) }
+.admin-breadcrumbs .sep { opacity:.45 }
+.admin-breadcrumbs .current { color: var(--text); font-weight: 600 }
+.admin-header-actions { display:flex; align-items:center; gap:8px }
+.admin-search { display:flex; align-items:center; gap:8px; background:#0f1320; border:1px solid var(--border); color: var(--text); padding:6px 10px; border-radius:8px }
+.admin-search input { background:transparent; border:0; color: var(--text); outline:none; width:220px }
+.kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:.75rem; color: var(--muted); border:1px solid var(--border); border-radius:6px; padding:2px 6px; background: transparent }
+.admin-ico { background:#0f1320; border:1px solid var(--border); color: var(--text); width:36px; height:36px; display:inline-grid; place-items:center; border-radius:8px; cursor:pointer }
+.admin-ico:hover { filter: brightness(1.04) }
+[data-theme='light'] .admin-search { background:#ffffff; color:#111827; border-color:#e5e7eb }
+[data-theme='light'] .admin-search input { color:#111827 }
+[data-theme='light'] .admin-ico { background:#f3f4f6; color:#111827; border-color:#e5e7eb }
 /* Sticky toolbar for admin content sections */
 .toolbar-sticky { position: sticky; top: 112px; z-index: 40; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px }
 [data-theme='light'] .toolbar-sticky { background: #ffffff }
