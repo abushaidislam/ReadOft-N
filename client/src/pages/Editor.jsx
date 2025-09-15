@@ -24,6 +24,9 @@ export default function Editor() {
   const [articleId, setArticleId] = useState(id || '')
   const [revisions, setRevisions] = useState([])
   const editorRef = useRef(null)
+  // Page-level loading flags for skeleton UI
+  const [loadingArticle, setLoadingArticle] = useState(!!id)
+  const [loadingCats, setLoadingCats] = useState(true)
   // Track last saved content to avoid redundant autosaves/revisions
   const lastSavedRef = useRef({ content: '' })
   const [autoSaving, setAutoSaving] = useState(false)
@@ -96,7 +99,8 @@ export default function Editor() {
   }
 
   useEffect(() => {
-    if (!id) return
+    if (!id) { setLoadingArticle(false); return }
+    setLoadingArticle(true)
     request(`/articles/${id}`).then((a) => { setForm({
       title: a.title,
       content: a.content,
@@ -105,10 +109,10 @@ export default function Editor() {
       status: a.status,
       thumbnail_url: a.thumbnail_url || '',
       thumbnail_path: a.thumbnail_path || '',
-    }); setSlug(a.slug || slugify(a.title)); lastSavedRef.current.content = a.content || '' }).catch((e)=>{ if (import.meta.env.DEV) console.debug('load article failed', e) })
+    }); setSlug(a.slug || slugify(a.title)); lastSavedRef.current.content = a.content || '' }).catch((e)=>{ if (import.meta.env.DEV) console.debug('load article failed', e) }).finally(()=> setLoadingArticle(false))
   }, [id, request])
 
-  useEffect(() => { request('/categories').then(setAllCategories).catch((e)=>{ if (import.meta.env.DEV) console.debug('load categories failed', e) }) }, [request])
+  useEffect(() => { setLoadingCats(true); request('/categories').then(setAllCategories).catch((e)=>{ if (import.meta.env.DEV) console.debug('load categories failed', e) }).finally(()=> setLoadingCats(false)) }, [request])
   // auto-generate slug when title changes unless user edited slug
   useEffect(() => { if (!slugTouched) setSlug(slugify(form.title)) }, [form.title, slugTouched])
 
@@ -195,6 +199,14 @@ export default function Editor() {
     setError('')
     setSaving(true)
     try {
+      // Validations (title length and required thumbnail for non-draft)
+      if (requiresStrict) {
+        if (!titleLen) { setError('Title is required'); setSaving(false); return }
+        if (isTitleTooLong) { setError(`Title too long (max ${TITLE_MAX})`); setSaving(false); return }
+        if (!(form.thumbnail_url || thumbFile)) { setError('Thumbnail is required to submit/publish'); setSaving(false); return }
+      } else {
+        if (isTitleTooLong) { setError(`Title too long (max ${TITLE_MAX})`); setSaving(false); return }
+      }
       let thumbnail_url = form.thumbnail_url || ''
       let thumbnail_path = form.thumbnail_path || ''
       if (thumbFile) {
@@ -422,6 +434,15 @@ export default function Editor() {
     setTimeout(() => { if (ta) { ta.focus(); ta.selectionStart = start; ta.selectionEnd = start + cleaned.length } }, 0)
   }
 
+  // Client-side validations
+  const TITLE_MAX = 120
+  const titleLen = (form.title || '').trim().length
+  const isTitleTooLong = titleLen > TITLE_MAX
+  const hasThumb = Boolean(form.thumbnail_url || thumbFile)
+  const requiresStrict = form.status !== 'draft'
+  const submitDisabled = (saving || (requiresStrict && (!hasThumb || isTitleTooLong || !titleLen)))
+  const pageLoading = loadingArticle || loadingCats
+
   // Markdown sanitize schema extended to allow MathML/KaTeX output + safe inline SVG
   const mdSchema = {
     ...defaultSchema,
@@ -540,44 +561,104 @@ export default function Editor() {
 
   return (
     <div className="container page">
-      <div className="editor-topbar">
-        <div className="left" style={{display:'flex', alignItems:'center', gap:8}}>
-          <h2 className="card-title" style={{ margin: 0 }}>{id ? 'Edit Article' : 'New Article'}</h2>
-          <span className={`badge ${form.status}`}>{form.status}</span>
-          {autoSaving ? (
-            <span className="skeleton-line" style={{ width: 80, height: 10, borderRadius: 6 }} />
-          ) : (
-            savingNote && <span className="muted">• {savingNote}</span>
-          )}
+      {pageLoading ? (
+        <div className="editor-topbar skeleton">
+          <div className="left" style={{display:'flex', alignItems:'center', gap:8}}>
+            <div className="skeleton-line w-60" />
+            <div className="skeleton-chip" />
+          </div>
+          <div className="right" style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <div className="skeleton-chip" />
+            <div className="skeleton-chip" />
+            <div className="skeleton-chip" />
+          </div>
         </div>
-        <div className="right" style={{ display:'flex', gap:8, alignItems:'center' }}>
-          {articleId && (
-            <button className="btn" type="button" onClick={async()=>{
-              try {
-                const r = await request(`/articles/${articleId}/preview`, { method:'POST' })
-                const url = r?.url || (r?.token ? `/p/${r.token}` : '')
-                if (url) {
-                  try { await navigator.clipboard.writeText(url.startsWith('http') ? url : (location.origin + url)) } catch (e) { if (import.meta.env.DEV) console.debug('copy to clipboard failed', e) }
-                  ui.notify('Preview link copied to clipboard', 'success')
-                }
-              } catch (e) { if (import.meta.env.DEV) console.debug('get preview link failed', e) }
-            }}>Get Preview Link</button>
-          )}
-          <button className="btn" type="button" onClick={openCompare} disabled={(form.content || '') === (lastSavedRef.current.content || '')}>
-            Compare Changes
-          </button>
-          <button className={`btn btn-primary ${saving ? 'loading' : ''}`} form="editor-form" type="submit" disabled={saving}>
-            {saving ? 'Saving…' : (form.status === 'pending' && auth.user?.role !== 'admin' ? 'Submit for review' : 'Save')}
-          </button>
+      ) : (
+        <div className="editor-topbar">
+          <div className="left" style={{display:'flex', alignItems:'center', gap:8}}>
+            <h2 className="card-title" style={{ margin: 0 }}>{id ? 'Edit Article' : 'New Article'}</h2>
+            <span className={`badge ${form.status}`}>{form.status}</span>
+            {autoSaving ? (
+              <span className="skeleton-line" style={{ width: 80, height: 10, borderRadius: 6 }} />
+            ) : (
+              savingNote && <span className="muted">• {savingNote}</span>
+            )}
+          </div>
+          <div className="right" style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {articleId && (
+              <button className="btn" type="button" onClick={async()=>{
+                try {
+                  const r = await request(`/articles/${articleId}/preview`, { method:'POST' })
+                  const url = r?.url || (r?.token ? `/p/${r.token}` : '')
+                  if (url) {
+                    try { await navigator.clipboard.writeText(url.startsWith('http') ? url : (location.origin + url)) } catch (e) { if (import.meta.env.DEV) console.debug('copy to clipboard failed', e) }
+                    ui.notify('Preview link copied to clipboard', 'success')
+                  }
+                } catch (e) { if (import.meta.env.DEV) console.debug('get preview link failed', e) }
+              }}>Get Preview Link</button>
+            )}
+            <button className="btn" type="button" onClick={openCompare} disabled={(form.content || '') === (lastSavedRef.current.content || '')}>
+              Compare Changes
+            </button>
+            <button
+              className={`btn btn-primary ${saving ? 'loading' : ''}`}
+              form="editor-form"
+              type="submit"
+              disabled={submitDisabled}
+              title={submitDisabled ? (requiresStrict && !hasThumb ? 'Add a thumbnail to submit' : (isTitleTooLong ? `Title too long (max ${TITLE_MAX})` : (!titleLen ? 'Add a title' : undefined))) : undefined}
+            >
+              {saving ? 'Saving…' : (form.status === 'pending' && auth.user?.role !== 'admin' ? 'Submit for review' : 'Save')}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+      {error && <p className="error" role="alert" style={{ marginTop: 8 }}>{error}</p>}
+      {pageLoading ? (
+        <div className="editor-split skeleton">
+          <form className="form">
+            <div className="card">
+              <div className="skeleton-line w-80" />
+            </div>
+            <div className="card">
+              <div className="skeleton-thumb" style={{ height: 180 }} />
+              <div className="skeleton-line w-50" />
+            </div>
+            <div className="card">
+              <div className="skeleton-row">
+                <div className="skeleton-chip" />
+                <div className="skeleton-chip" />
+                <div className="skeleton-chip" />
+              </div>
+              <div className="skeleton-thumb" style={{ height: 280 }} />
+            </div>
+            <div className="card">
+              <div className="skeleton-line w-60" />
+              <div className="skeleton-row">
+                <div className="skeleton-chip" />
+                <div className="skeleton-chip" />
+                <div className="skeleton-chip" />
+              </div>
+            </div>
+          </form>
+          <aside className="editor-preview">
+            <div className="card">
+              <div className="skeleton-line w-60" />
+              <div className="skeleton-line w-80" />
+              <div className="skeleton-line w-50" />
+              <div className="skeleton-thumb" style={{ height: 240 }} />
+            </div>
+          </aside>
+        </div>
+      ) : (
       <div className="editor-split">
       <form id="editor-form" onSubmit={onSubmit} className="form">
         <div className="card">
-          <input className="title-input" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <input className="title-input" placeholder="Title" maxLength={TITLE_MAX} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <div className="muted" style={{ marginTop: 6 }}>{titleLen}/{TITLE_MAX} characters</div>
+          {isTitleTooLong && <div className="error" style={{ marginTop: 4 }}>Title too long (max {TITLE_MAX} characters)</div>}
         </div>
         <div className="card">
-          <label>Thumbnail image</label>
+          <label>Thumbnail image <span className="muted">(required to submit/publish)</span></label>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => setThumbFile(e.target.files?.[0] || null)} />
           {(thumbFile || form.thumbnail_url) && (
             <div style={{ marginTop: 8 }}>
@@ -587,6 +668,7 @@ export default function Editor() {
           <div style={{ marginTop: 8 }}>
             <button type="button" className="btn" onClick={() => openMedia('thumb')}>Choose from Library</button>
           </div>
+          {requiresStrict && !hasThumb && <div className="error" style={{ marginTop: 8 }}>Add a thumbnail to submit/publish.</div>}
         </div>
         <div className="card">
           <div className="editor-toolbar sticky">
@@ -714,6 +796,7 @@ export default function Editor() {
         </div>
       </aside>
       </div>
+      )}
       {articleId && (
         <div className="section-card" style={{ marginTop: 16 }}>
           <h3 className="card-title">Revisions</h3>

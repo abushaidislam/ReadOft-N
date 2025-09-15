@@ -83,18 +83,28 @@ export default function ArticleCard({ article, index = 0 }) {
       )}
       style={{ animationDelay: `${(index % 12) * 30}ms` }}
     >
-      {/* Cover */}
-      <Link to={href} className="block">
-        {coverSrc ? (
-          <img
-            src={coverSrc}
-            alt={coverAlt}
-            className={cn('h-40', 'w-full rounded-t-2xl object-cover transition duration-500 ease-out group-hover:brightness-105')}
-            loading="lazy"
-            decoding="async"
-          />
-        ) : null}
-      </Link>
+      {/* Cover + badges */}
+      <div className="relative">
+        <Link to={href} className="block">
+          {coverSrc ? (
+            <img
+              src={coverSrc}
+              alt={coverAlt}
+              className={cn('h-48 md:h-56', 'w-full rounded-t-2xl object-cover transition duration-500 ease-out group-hover:brightness-105')}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : null}
+        </Link>
+        {category && (
+          <Link to={`/category/${category}`} className="category-chip card-badge left-2 top-2">
+            {category}
+          </Link>
+        )}
+        {!!readingTime && (
+          <span className="time-badge card-badge right-2 top-2">{readingTime} min</span>
+        )}
+      </div>
 
       {/* Body */}
       <div className={cn('flex flex-col gap-3', 'p-4')}>
@@ -174,11 +184,7 @@ export default function ArticleCard({ article, index = 0 }) {
             )}
             <span className="author-name text-sm font-medium">{authorName}</span>
           </Link>
-          {category && (
-            <Link to={`/category/${category}`} className="category-chip rounded-md px-3 py-1 text-xs font-medium">
-              {category}
-            </Link>
-          )}
+          <span />
         </div>
       </div>
     </article>
