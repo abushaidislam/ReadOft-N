@@ -220,3 +220,17 @@ create table if not exists push_subscriptions (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_push_user on push_subscriptions(user_id, created_at desc);
+
+-- Personal Access Tokens for API
+create table if not exists api_tokens (
+  id uuid primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  name text not null default '',
+  token_hash text not null unique,
+  scopes text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  expires_at timestamptz null,
+  last_used_at timestamptz null
+);
+create index if not exists idx_api_tokens_user on api_tokens(user_id);
+create index if not exists idx_api_tokens_expires on api_tokens(expires_at);

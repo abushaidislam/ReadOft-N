@@ -31,8 +31,9 @@ export default function Admin() {
   const [userQuery, setUserQuery] = useState('')
   const [userRoleFilter, setUserRoleFilter] = useState('all') // all | reader | author | admin
   const [userStatusFilter, setUserStatusFilter] = useState('all') // all | active | banned
-  const [userPage, setUserPage] = useState(1)
-  const USER_PAGE_SIZE = 10
+  // Progressive reveal: first 10, then +15, +15 ...
+  const [userVisibleCount, setUserVisibleCount] = useState(10)
+  const USER_LOAD_STEP = 15
   // Reports filter
   const [reportFilter, setReportFilter] = useState('all') // all | open | reviewed | dismissed | actioned
   const [reportTargetFilter, setReportTargetFilter] = useState('all') // all | post | comment | user | category ...
@@ -154,19 +155,45 @@ export default function Admin() {
     return arr
   }, [users, userQuery, userRoleFilter, userStatusFilter, userSortField, userSortDir])
 
-  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / USER_PAGE_SIZE))
-  const paginatedUsers = useMemo(() => {
-    const start = (userPage - 1) * USER_PAGE_SIZE
-    return filteredUsers.slice(start, start + USER_PAGE_SIZE)
-  }, [filteredUsers, userPage])
+  // Visible slice of users for infinite scroll
+  const visibleUsers = useMemo(() => filteredUsers.slice(0, userVisibleCount), [filteredUsers, userVisibleCount])
+  const [usersMoreLoading, setUsersMoreLoading] = useState(false)
+  const usersHasMore = useMemo(() => userVisibleCount < filteredUsers.length, [userVisibleCount, filteredUsers.length])
+  // reset on filter/search change
+  useEffect(() => { setUserVisibleCount(10); setSelectedUserIds([]) }, [userQuery, userRoleFilter, userStatusFilter])
+  // IntersectionObserver to auto-increase visibleCount
+  useEffect(() => {
+    const el = document.getElementById('users-sentinel')
+    if (!el) return
+    const obs = new IntersectionObserver((entries) => {
+      const e = entries[0]
+      if (e.isIntersecting && usersHasMore) {
+        setUsersMoreLoading(true)
+        // small timeout to avoid jank and simulate async
+        setTimeout(() => { setUserVisibleCount((c) => Math.min(filteredUsers.length, c + USER_LOAD_STEP)); setUsersMoreLoading(false) }, 120)
+      }
+    }, { rootMargin: '300px 0px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [filteredUsers.length, usersHasMore])
 
-  useEffect(() => { setUserPage(1) }, [userQuery, userRoleFilter, userStatusFilter])
-  useEffect(() => { setSelectedUserIds([]) }, [userQuery, userRoleFilter, userStatusFilter, userPage])
-
-  const setRole = async (id, role) => {
-    await request(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }), noGlobalLoading: true })
-    ui.notify('Role updated', 'success')
-    load()
+  const [rowBusy, setRowBusy] = useState({})
+  const patchUserLocal = (id, patch) => {
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u)))
+  }
+  const setRole = async (id, role, currentRole) => {
+    if (role !== currentRole && (role === 'admin' || role === 'author')) {
+      const ok = confirm(`Change role to "${role}"?`)
+      if (!ok) return
+    }
+    setRowBusy((b) => ({ ...b, [id]: true }))
+    try {
+      const res = await request(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }), noGlobalLoading: true })
+      patchUserLocal(id, { role: res?.role || role })
+      ui.notify('Role updated', 'success')
+    } catch (e) {
+      ui.notify(e?.message || 'Failed to update role', 'error')
+    } finally { setRowBusy((b) => ({ ...b, [id]: false })) }
   }
 
   const openUserDrawer = (u) => { setUserDrawerUser(u); setUserDrawerRole(u.role || 'reader'); setUserDrawerOpen(true) }
@@ -388,10 +415,10 @@ export default function Admin() {
             <tr>
               <th>
                 {(() => {
-                  const allOnPage = paginatedUsers.length>0 && paginatedUsers.every(u => selectedUserIds.includes(u.id))
+                  const allOnPage = visibleUsers.length>0 && visibleUsers.every(u => selectedUserIds.includes(u.id))
                   return (
                     <input type="checkbox" aria-label="Select all on page" checked={allOnPage} onChange={() => {
-                      const idsOnPage = paginatedUsers.map(u=>u.id)
+                      const idsOnPage = visibleUsers.map(u=>u.id)
                       if (allOnPage) setSelectedUserIds(prev => prev.filter(id => !idsOnPage.includes(id)))
                       else setSelectedUserIds(prev => Array.from(new Set([...prev, ...idsOnPage])))
                     }} />
@@ -406,9 +433,9 @@ export default function Admin() {
             </tr>
           </thead>
           <tbody>
-            {paginatedUsers.length === 0 ? (
+            {visibleUsers.length === 0 ? (
               <tr><td colSpan="6" className="muted">No users found</td></tr>
-            ) : paginatedUsers.map((u) => (
+            ) : visibleUsers.map((u) => (
               <tr key={u.id}>
                 <td><input type="checkbox" aria-label={`Select ${u.email}`} checked={selectedUserIds.includes(u.id)} onChange={() => setSelectedUserIds(prev => prev.includes(u.id) ? prev.filter(id => id!==u.id) : [...prev, u.id])} /></td>
                 <td>
@@ -424,28 +451,27 @@ export default function Admin() {
                 <td>{u.is_banned ? <span className="badge pending">banned</span> : <span className="badge published">active</span>}</td>
                 <td style={{display:'flex', gap:8}}>
                   <button className="btn" onClick={() => openUserDrawer(u)}>View</button>
-                  <select value={u.role} onChange={(e) => setRole(u.id, e.target.value)}>
+                  <select value={u.role} onChange={(e) => setRole(u.id, e.target.value, u.role)} disabled={rowBusy[u.id]}>
                     <option value="reader">reader</option>
                     <option value="author">author</option>
                     <option value="admin">admin</option>
                   </select>
-                  <button className="btn" onClick={async()=>{ await request(`/admin/users/${u.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: !u.is_banned }), noGlobalLoading: true }); load() }}>{u.is_banned?'Unban':'Ban'}</button>
-                  <button className="btn" onClick={async()=>{ await request(`/admin/users/${u.id}/verify`, { method:'PUT', body: JSON.stringify({ verified: !u.is_verified }), noGlobalLoading: true }); ui.notify(u.is_verified ? 'Unverified' : 'Verified', 'success'); load() }}>{u.is_verified ? 'Unverify' : 'Verify'}</button>
-                  <button className="btn" onClick={async()=>{ if (confirm('Delete user account? This cannot be undone.')) { await request(`/admin/users/${u.id}`, { method:'DELETE', noGlobalLoading: true }); load() } }}>Delete</button>
+                  <button className="btn" disabled={rowBusy[u.id]} onClick={async()=>{ setRowBusy(b=>({...b,[u.id]:true})); try { const next=!u.is_banned; await request(`/admin/users/${u.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: next }), noGlobalLoading: true }); patchUserLocal(u.id, { is_banned: next }); ui.notify(next?'Banned':'Unbanned','success') } catch(e){ ui.notify(e?.message||'Failed','error') } finally { setRowBusy(b=>({...b,[u.id]:false})) } }}>{u.is_banned?'Unban':'Ban'}</button>
+                  <button className="btn" disabled={rowBusy[u.id]} onClick={async()=>{ setRowBusy(b=>({...b,[u.id]:true})); try { const next=!u.is_verified; await request(`/admin/users/${u.id}/verify`, { method:'PUT', body: JSON.stringify({ verified: next }), noGlobalLoading: true }); patchUserLocal(u.id, { is_verified: next }); ui.notify(next?'Verified':'Unverified','success') } catch(e){ ui.notify(e?.message||'Failed','error') } finally { setRowBusy(b=>({...b,[u.id]:false})) } }}>{u.is_verified ? 'Unverify' : 'Verify'}</button>
+                  <button className="btn" disabled={rowBusy[u.id]} onClick={async()=>{ if (!confirm('Delete user account? This cannot be undone.')) return; setRowBusy(b=>({...b,[u.id]:true})); try { await request(`/admin/users/${u.id}`, { method:'DELETE', noGlobalLoading: true }); setUsers(prev=>prev.filter(x=>x.id!==u.id)); ui.notify('User deleted','success') } catch(e){ ui.notify(e?.message||'Failed to delete','error') } finally { setRowBusy(b=>({...b,[u.id]:false})) } }}>Delete</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div className="page" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop: 8 }}>
-          <div className="muted" style={{ fontSize: '.9rem' }}>
-            Page {userPage} of {totalUserPages} • {filteredUsers.length} results
-          </div>
-          <div style={{ display:'flex', gap: 8 }}>
-            <button className="btn" onClick={() => setUserPage((p) => Math.max(1, p - 1))} disabled={userPage <= 1}>Prev</button>
-            <button className="btn" onClick={() => setUserPage((p) => Math.min(totalUserPages, p + 1))} disabled={userPage >= totalUserPages}>Next</button>
-          </div>
+        {/* Infinite loader */}
+        <div style={{ display:'flex', justifyContent:'center', paddingTop: 8 }}>
+          {usersMoreLoading && <div className="muted">Loading more…</div>}
+          {!usersMoreLoading && usersHasMore && (
+            <button className="btn" onClick={() => setUserVisibleCount(c => Math.min(filteredUsers.length, c + USER_LOAD_STEP))}>Load more</button>
+          )}
         </div>
+        <div id="users-sentinel" style={{ height: 1 }} />
       </section>
   )
 
@@ -1025,12 +1051,12 @@ export default function Admin() {
                   <option value="admin">admin</option>
                 </select>
                 <div className="card-actions" style={{ justifyContent:'flex-end' }}>
-                  <button className="btn" onClick={async()=>{ await setRole(userDrawerUser.id, userDrawerRole); closeUserDrawer() }}>Apply Role</button>
+                  <button className="btn" onClick={async()=>{ await setRole(userDrawerUser.id, userDrawerRole, userDrawerUser.role); patchUserLocal(userDrawerUser.id, { role: userDrawerRole }); closeUserDrawer() }}>Apply Role</button>
                 </div>
               </div>
 
               <div className="card-actions" style={{ justifyContent:'space-between' }}>
-                <button className="btn" onClick={async()=>{ await request(`/admin/users/${userDrawerUser.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: !userDrawerUser.is_banned }), noGlobalLoading: true }); ui.notify(userDrawerUser.is_banned?'Unbanned':'Banned','success'); load(); closeUserDrawer() }}>{userDrawerUser.is_banned?'Unban user':'Ban user'}</button>
+                <button className="btn" onClick={async()=>{ try { const next=!userDrawerUser.is_banned; await request(`/admin/users/${userDrawerUser.id}/ban`, { method:'PUT', body: JSON.stringify({ banned: next }), noGlobalLoading: true }); ui.notify(next?'Banned':'Unbanned','success'); patchUserLocal(userDrawerUser.id, { is_banned: next }); closeUserDrawer() } catch(e){ ui.notify(e?.message||'Failed','error') } }}>{userDrawerUser.is_banned?'Unban user':'Ban user'}</button>
                 <button className="btn" onClick={async()=>{ if (confirm('Delete this user? This cannot be undone.')) { await request(`/admin/users/${userDrawerUser.id}`, { method:'DELETE', noGlobalLoading: true }); ui.notify('User deleted','success'); load(); closeUserDrawer() } }}>Delete</button>
               </div>
             </div>

@@ -19,13 +19,16 @@ export default function Authors() {
   const [top, setTop] = useState([])
   const [topLoading, setTopLoading] = useState(false)
 
-  // All authors
+  // All authors (infinite scroll)
   const [items, setItems] = useState([])
   const [pageInfo, setPageInfo] = useState(null)
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState('-created_at') // name | -created_at
   const [allLoading, setAllLoading] = useState(true)
+  const [moreLoading, setMoreLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [error, setError] = useState('')
+  const sentinelRef = useRef(null)
 
   // Helpers
   const doSearch = useCallback(async (term) => {
@@ -58,22 +61,65 @@ export default function Authors() {
   }, [request])
 
   const loadAll = useCallback(async () => {
+    // initial page load (page 1)
     setAllLoading(true)
     setError('')
     try {
-      const params = new URLSearchParams({ page: String(page), limit: '12', sort, with_followers: '1' })
+      const params = new URLSearchParams({ page: '1', limit: '12', sort, with_followers: '1' })
       const data = await request(`/authors/list?${params.toString()}`, { noGlobalLoading: true })
-      setItems(Array.isArray(data?.items) ? data.items : [])
+      const list = Array.isArray(data?.items) ? data.items : []
+      setItems(list)
       setPageInfo(data?.pageInfo || null)
+      const p = data?.pageInfo?.page || 1
+      const total = data?.pageInfo?.totalPages || 1
+      setPage(p)
+      setHasMore(p < total)
     } catch (e) {
       setError(e?.message || 'Failed to load authors')
+      setHasMore(false)
+      setItems([])
     } finally { setAllLoading(false) }
-  }, [page, sort, request])
+  }, [sort, request])
+
+  const loadMore = useCallback(async () => {
+    if (moreLoading || !hasMore) return
+    setMoreLoading(true)
+    try {
+      const nextPage = page + 1
+      const params = new URLSearchParams({ page: String(nextPage), limit: '12', sort, with_followers: '1' })
+      const data = await request(`/authors/list?${params.toString()}`, { noGlobalLoading: true })
+      const list = Array.isArray(data?.items) ? data.items : []
+      setItems((prev) => prev.concat(list))
+      setPageInfo(data?.pageInfo || null)
+      const p = data?.pageInfo?.page || nextPage
+      const total = data?.pageInfo?.totalPages || p
+      setPage(p)
+      setHasMore(p < total)
+    } catch (e) {
+      // keep hasMore as-is; expose a small error message
+      if (import.meta.env.DEV) console.debug('loadMore failed', e)
+    } finally { setMoreLoading(false) }
+  }, [page, sort, request, moreLoading, hasMore])
 
   // Effects
   useEffect(() => { loadTop().catch(()=>{}); loadFollowed().catch(()=>{}) }, [loadTop, loadFollowed])
-  useEffect(() => { setPage(1) }, [sort])
-  useEffect(() => { loadAll().catch(()=>{}) }, [page, sort, loadAll])
+  useEffect(() => { setPage(1); setHasMore(true); setItems([]); loadAll().catch(()=>{}) }, [sort, loadAll])
+  // initial
+  useEffect(() => { loadAll().catch(()=>{}) }, [])
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver((entries) => {
+      const entry = entries[0]
+      if (entry.isIntersecting && !q.trim()) {
+        loadMore().catch(()=>{})
+      }
+    }, { rootMargin: '300px 0px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [loadMore, q])
 
   // Debounced search
   useEffect(() => {
@@ -329,11 +375,14 @@ export default function Authors() {
               <div style={grid}>
                 {items.map((u) => <AuthorCard key={u.id} u={u} />)}
               </div>
-              <div style={{ display:'flex', gap:8, justifyContent:'center', marginTop:16 }}>
-                <button className="btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
-                <span className="muted">Page {pageInfo?.page || page} / {pageInfo?.totalPages || '?'}</span>
-                <button className="btn" disabled={pageInfo && page >= pageInfo.totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
+              {/* Infinite loader + manual fallback */}
+              <div style={{ display:'flex', justifyContent:'center', marginTop:16 }}>
+                {moreLoading && <div className="muted">Loading more…</div>}
+                {!moreLoading && hasMore && (
+                  <button className="btn" onClick={() => loadMore()}>Load more</button>
+                )}
               </div>
+              <div ref={sentinelRef} style={{ height: 1 }} />
             </>
           )}
         </div>
