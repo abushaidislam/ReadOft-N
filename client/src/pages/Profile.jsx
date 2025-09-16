@@ -189,6 +189,17 @@ export default function Profile() {
             </div>
           </section>
         )}
+
+        {(auth.user?.role === 'author' || auth.user?.role === 'admin') && (
+          <section className="section-card">
+            <h3 style={{marginTop:0}}>Developer</h3>
+            <p className="muted">Create API tokens and publish from external tools.</p>
+            <div style={{display:'flex', gap:8}}>
+              <Link className="btn btn-primary" to={`/author/${auth.user?.id}?tab=dev`}>Open Developer tab</Link>
+              <Link className="btn" to={`/author/${auth.user?.id}`}>View public profile</Link>
+            </div>
+          </section>
+        )}
       </div>
       )}
 

@@ -21,7 +21,17 @@ export function AuthProvider({ children }) {
     localStorage.setItem(storageKey, JSON.stringify(auth))
   }, [auth])
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api'
+  // API base can be overridden at runtime via localStorage('api.base')
+  const [apiBase, setApiBaseState] = useState(() => {
+    try { return localStorage.getItem('api.base') || (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api') } catch { return import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api' }
+  })
+  const setApiBase = (url) => {
+    try {
+      if (url) localStorage.setItem('api.base', url)
+      else localStorage.removeItem('api.base')
+    } catch {}
+    setApiBaseState(url || (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api'))
+  }
 
   function notify(message, type = 'info', duration = 3000) {
     const id = toastId.current++
@@ -88,7 +98,7 @@ export function AuthProvider({ children }) {
   function startNotifStream() {
     try {
       if (!auth.token || esRef.current) return
-      const url = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api') + `/notifications/stream?token=${encodeURIComponent(auth.token)}`
+      const url = apiBase + `/notifications/stream?token=${encodeURIComponent(auth.token)}`
       const es = new EventSource(url)
       es.onmessage = (ev) => {
         try {
@@ -173,7 +183,7 @@ export function AuthProvider({ children }) {
       startNotifStream,
       stopNotifStream,
     }
-  }), [auth, busyCount, toasts, notifs, unread, loadingNotifications, request])
+  }), [auth, busyCount, toasts, notifs, unread, loadingNotifications, request, apiBase])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

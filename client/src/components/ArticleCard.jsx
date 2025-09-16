@@ -68,7 +68,7 @@ export default function ArticleCard({ article, index = 0 }) {
   }
   // Derived UI props for the new card design
   const href = article.slug ? `/a/${article.slug}` : `/article/${article.id}`
-  const coverSrc = article.thumbnail_url
+  const coverSrc = (article.thumbnail_url || '').trim()
   const coverAlt = article.title || 'Article cover'
   const authorName = article.author?.name || 'Author'
   const authorAvatar = article.author?.avatar_url || ''
@@ -94,7 +94,14 @@ export default function ArticleCard({ article, index = 0 }) {
               loading="lazy"
               decoding="async"
             />
-          ) : null}
+          ) : (
+            <div className="thumb-placeholder rounded-t-2xl">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 9a3 3 0 116 0c0 2-3 2-3 4"></path>
+                <path d="M12 17h.01"></path>
+              </svg>
+            </div>
+          )}
         </Link>
         {category && (
           <Link to={`/category/${category}`} className="category-chip card-badge left-2 top-2">

@@ -1,0 +1,29 @@
+ngrok দিয়ে “পুরো ওয়েব” দেখানো যায়। দুইটা সহজ পথ আছে:
+
+Option A: Dev preview (দুটো আলাদা টানেল)
+
+API (4000) expose
+চালান: ngrok http 4000
+ধরি API URL: https://xxxx.ngrok-free.app
+client/.env এ সেট করুন: VITE_API_BASE_URL=https://xxxx.ngrok-free.app/api
+server/.env এ CORS_ORIGIN এ client ngrok URL দিন: CORS_ORIGIN=https://yyyy.ngrok-free.app
+সার্ভার রিস্টার্ট করুন
+Frontend (Vite 5173) expose
+চালান: ngrok http 5173
+ধরি সাইট URL: https://yyyy.ngrok-free.app
+এই URL শেয়ার করলেই পুরো সাইট দেখা যাবে; API কলগুলো যাবে API ngrok ডোমেইনে
+Option B: Single-domain preview (স্ট্যাটিক build সার্ভ করে)
+
+Build frontend
+cd client && npm run build → dist তৈরি হবে
+dist serve করে ngrok
+দ্রুত উপায়: npx serve -s client/dist -l 5173
+তারপর: ngrok http 5173
+API আলাদা ngrok ডোমেইনে থাকুক (Option A-এর মতো) বা
+চাইলে Express থেকে dist সার্ভ করে একটাই পোর্ট/ডোমেইনে চালানো যায় (server থেকে /api, এবং বাকি রুটে dist/index.html)। এটা চাইলে আমি কোডে যোগ করে দিতে পারি; তখন শুধু ngrok http 4000 করলেই পুরো সাইট + API এক ডোমেইনে থাকবে।
+যা খেয়াল রাখবেন
+
+HTTPS: ngrok URL সবসময় https ব্যবহার করুন (মিশ্র কনটেন্ট এড়াতে)।
+CORS: server/.env → CORS_ORIGIN এ client ngrok URL যোগ করুন (কমা দিয়ে একাধিকও দেওয়া যায়)।
+SSE/WebSocket: ngrok এগুলো সাপোর্ট করে; সমস্যা হলে টানেল রিস্টার্ট করুন।
+ngrok URL বদলে যায়: URL বদলালে client/.env (VITE_API_BASE_URL) আর GPT schema servers দুটোই আপডেট করতে হবে; Vite রিস্টার্ট লাগবে।

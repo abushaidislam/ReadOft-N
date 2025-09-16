@@ -212,24 +212,42 @@ router.post('/avatar', authRequired, upload.single('file'), async (req, res) => 
 // Generic article media (inline images)
 router.post('/article-media', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN), upload.single('file'), async (req, res) => {
   try {
-    const file = req.file
-    if (!file) return res.status(400).json({ message: 'No file uploaded' })
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
-    if (!allowed.includes(file.mimetype)) return res.status(400).json({ message: 'Invalid file type' })
-
     const bucket = 'article-media'
     await ensureBucketPublic(bucket)
-    const ext = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg'
-    const path = `${req.user.id}/${randomUUID()}.${ext}`
 
-    const { error: upErr } = await supabase.storage.from(bucket).upload(path, file.buffer, {
-      contentType: file.mimetype,
-      cacheControl: '3600',
-      upsert: false,
-    })
-    if (upErr) throw upErr
-    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path)
-    res.status(201).json({ url: pub.publicUrl, path })
+    const file = req.file
+    const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
+
+    // Case 1: multipart file upload
+    if (file) {
+      if (!allowed.includes(file.mimetype)) return res.status(400).json({ message: 'Invalid file type' })
+      const ext = file.mimetype === 'image/png' ? 'png' : (file.mimetype === 'image/webp' ? 'webp' : (file.mimetype === 'image/svg+xml' ? 'svg' : 'jpg'))
+      const path = `${req.user.id}/${randomUUID()}.${ext}`
+      const { error: upErr } = await supabase.storage.from(bucket).upload(path, file.buffer, { contentType: file.mimetype, cacheControl: '3600', upsert: false })
+      if (upErr) throw upErr
+      const { data: pub } = await supabase.storage.from(bucket).getPublicUrl(path)
+      return res.status(201).json({ url: pub.publicUrl, path })
+    }
+
+    // Case 2: JSON body with a public URL to fetch
+    if (url) {
+      let resp
+      try { resp = await fetch(url) } catch { return res.status(400).json({ message: 'Failed to fetch URL' }) }
+      if (!resp?.ok) return res.status(400).json({ message: 'Failed to fetch URL' })
+      const ctype = (resp.headers.get('content-type') || '').split(';')[0].trim()
+      if (!allowed.includes(ctype)) return res.status(400).json({ message: 'Invalid content type' })
+      const ab = await resp.arrayBuffer()
+      const buf = Buffer.from(ab)
+      const ext = ctype === 'image/png' ? 'png' : (ctype === 'image/webp' ? 'webp' : (ctype === 'image/svg+xml' ? 'svg' : 'jpg'))
+      const path = `${req.user.id}/${randomUUID()}.${ext}`
+      const { error: upErr } = await supabase.storage.from(bucket).upload(path, buf, { contentType: ctype, cacheControl: '3600', upsert: false })
+      if (upErr) throw upErr
+      const { data: pub } = await supabase.storage.from(bucket).getPublicUrl(path)
+      return res.status(201).json({ url: pub.publicUrl, path })
+    }
+
+    return res.status(400).json({ message: 'No file uploaded' })
   } catch (e) {
     console.error('Upload media error:', e)
     res.status(500).json({ message: e?.message || 'Upload failed' })

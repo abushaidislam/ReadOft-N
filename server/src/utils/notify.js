@@ -83,6 +83,11 @@ export async function notifyAdmins(type, payload = {}) {
     if (insErr) { console.error('notifyAdmins insert error', insErr); return }
     if (Array.isArray(inserted)) {
       for (const row of inserted) pushOne(row.user_id, row)
+      // best-effort Web Push to all admins
+      try {
+        const msg = buildPushMessage(type, payload)
+        if (msg) await sendPushToUsers(ids, msg)
+      } catch (e) { /* silent */ }
     }
   } catch (e) {
     console.error('notifyAdmins error', e)
@@ -134,6 +139,11 @@ function buildPushMessage(type, payload) {
     }
     if (type === 'article_rejected') {
       return { title: 'Article rejected', body: payload?.reason ? `Reason: ${payload.reason}` : 'Please revise your article', url: `/dashboard` }
+    }
+    if (type === 'pending_article_submitted') {
+      const by = payload?.author_name ? `${payload.author_name} submitted` : 'New submission'
+      const t = payload?.title ? `: ${payload.title}` : ''
+      return { title: 'Approval needed', body: `${by}${t}`.slice(0, 120), url: `/admin` }
     }
     return null
   } catch {
