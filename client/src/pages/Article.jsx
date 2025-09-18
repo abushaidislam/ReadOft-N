@@ -14,6 +14,62 @@ const Comments = lazy(() => import('../components/Comments.jsx'))
 import ArticleCard from '../components/ArticleCard.jsx'
 import ArticleSkeleton from '../components/ArticleSkeleton.jsx'
 
+const SUMMARY_LEVELS = [
+  { id: 'short', label: 'Quick' },
+  { id: 'medium', label: 'Balanced' },
+  { id: 'long', label: 'Detailed' },
+]
+
+const SUMMARY_FOCUS_OPTIONS = [
+  { id: 'balanced', label: 'Balanced' },
+  { id: 'insights', label: 'Insights' },
+  { id: 'actionable', label: 'Actionable' },
+  { id: 'simplify', label: 'Simplify' },
+]
+
+const MAX_SUMMARY_CHARS = 20000
+
+let entityDecoder
+function decodeEntitiesSafe(text) {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return text
+  if (!entityDecoder) {
+    entityDecoder = document.createElement('textarea')
+  }
+  entityDecoder.innerHTML = text
+  return entityDecoder.value || ''
+}
+
+function cleanMarkdownForSpeech(markdown) {
+  if (!markdown) return ''
+  let text = String(markdown)
+  text = text.replace(/\r\n/g, '\n')
+  text = text.replace(/```[\s\S]*?```/g, ' ')
+  text = text.replace(/`[^`]*`/g, ' ')
+  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '$1 ')
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ')
+  text = text.replace(/<[^>]+>/g, ' ')
+  text = text.replace(/<!--[\s\S]*?-->/g, ' ')
+  text = text.replace(/(^|\n)\s*[-+*]\s+/g, '\n')
+  text = text.replace(/(^|\n)\s*\d+\.\s+/g, '\n')
+  text = text.replace(/(^|\n)>{1,3}\s*/g, '\n')
+  text = text.replace(/(^|\n)#{1,6}\s*/g, '\n')
+  text = text.replace(/\[(x| )\]/gi, ' ')
+  text = text.replace(/[\*_~`>#]/g, ' ')
+  text = text.replace(/\u00A0/g, ' ')
+  text = text.replace(/\|/g, ' ')
+  text = text.replace(/={3,}|-{3,}/g, ' ')
+  text = text.replace(/\r/g, '\n')
+  text = text.replace(/\t/g, ' ')
+  text = text.replace(/\s+\n/g, '\n')
+  text = text.replace(/\n\s+/g, '\n')
+  text = text.replace(/\n{3,}/g, '\n\n')
+  text = text.replace(/\u200B/g, '')
+  const decoded = decodeEntitiesSafe(text)
+  const lines = decoded.split('\n').map(line => line.trim())
+  const compact = lines.filter((line, index) => line.length || (index > 0 && lines[index - 1].length)).join('\n')
+  return compact.replace(/[ \t]{2,}/g, ' ').trim()
+}
+
 export default function Article() {
   const { id, slug } = useParams()
   const navigate = useNavigate()
@@ -32,8 +88,11 @@ export default function Article() {
   const [summary, setSummary] = useState('')
   const [summaryBusy, setSummaryBusy] = useState(false)
   const [summaryVisible, setSummaryVisible] = useState(false)
-  const summaryLevel = 'medium' // fixed level
+  const [summaryLevel, setSummaryLevel] = useState('medium')
+  const [summaryFocus, setSummaryFocus] = useState('balanced')
   const [summaryLang, setSummaryLang] = useState(() => (navigator.language?.startsWith('bn') ? 'Bengali' : 'English'))
+  const summaryLevelLabel = useMemo(() => SUMMARY_LEVELS.find((opt) => opt.id === summaryLevel)?.label || 'Balanced', [summaryLevel])
+  const summaryFocusLabel = useMemo(() => SUMMARY_FOCUS_OPTIONS.find((opt) => opt.id === summaryFocus)?.label || 'Balanced', [summaryFocus])
   const [toc, setToc] = useState([])
   const startRef = useRef(0)
   const articleIdRef = useRef(null)
@@ -284,14 +343,7 @@ export default function Article() {
   }
 
   // Plain text for TTS (strip code/markdown)
-  const plainText = useMemo(() => {
-    const txt = article?.content || ''
-    return txt
-      .replace(/```[\s\S]*?```/g, '') // remove fenced code blocks
-      .replace(/`[^`]*`/g, '') // inline code
-      .replace(/\[(.*?)\]\((.*?)\)/g, '$1') // links -> label
-      .replace(/[#*_>`]/g, '') // markdown markers
-  }, [article?.content])
+  const plainText = useMemo(() => cleanMarkdownForSpeech(article?.content || ''), [article?.content])
 
   // removed local extractive summarizer; using AI instead
 
@@ -304,19 +356,34 @@ export default function Article() {
   }
 
   // Call server-side Gemini summarization
-  const summarizeWithAI = async (lvl) => {
+  const summarizeWithAI = async (lvl, langOverride, focusOverride) => {
     const level = lvl || summaryLevel
+    const lang = langOverride || summaryLang
+    const focus = focusOverride || summaryFocus
     try {
       setSummaryBusy(true)
+      const baseText = plainText.trim()
+      if (!baseText) {
+        ui?.notify?.('Nothing to summarize yet', 'info')
+        return
+      }
       const resp = await request('/ai/summarize', {
         method: 'POST',
-        body: JSON.stringify({ text: plainText, level, lang: summaryLang }),
+        body: JSON.stringify({ text: baseText.slice(0, MAX_SUMMARY_CHARS), level, lang, focus }),
         noGlobalLoading: true,
       })
       if (resp?.summary) {
         setSummary(resp.summary)
         const ver = article?.updated_at || article?.created_at
-        if (article?.id && ver) writeSummaryCache(article.id, summaryLang, { summary: resp.summary, updated_at: ver, saved_at: Date.now() })
+        const resolvedLevel = (typeof resp.level === 'string' ? resp.level : level) || level
+        const resolvedFocus = (typeof resp.focus === 'string' ? resp.focus : focus) || focus
+        const cacheLevel = SUMMARY_LEVELS.some((opt) => opt.id === resolvedLevel) ? resolvedLevel : level
+        const cacheFocus = SUMMARY_FOCUS_OPTIONS.some((opt) => opt.id === resolvedFocus) ? resolvedFocus : focus
+        if (article?.id && ver) {
+          writeSummaryCache(article.id, lang, cacheLevel, cacheFocus, { summary: resp.summary, updated_at: ver, saved_at: Date.now() })
+        }
+        if (cacheLevel !== summaryLevel) setSummaryLevel(cacheLevel)
+        if (cacheFocus !== summaryFocus) setSummaryFocus(cacheFocus)
       }
       else ui?.notify?.('AI did not return a summary', 'error')
     } catch (e) { ui?.notify?.(e?.message || 'AI summarization failed', 'error') }
@@ -326,36 +393,62 @@ export default function Article() {
   const onSummarizeClick = async () => {
     if (summaryVisible) { setSummaryVisible(false); return }
     setSummaryVisible(true)
-    if (!summary) await summarizeWithAI()
+    if (!summary) await summarizeWithAI(summaryLevel, summaryLang, summaryFocus)
   }
 
   // Local cache for summaries (per-article + updated_at)
-  const readSummaryCache = useCallback((aid, lang) => {
-    try { return JSON.parse(localStorage.getItem(`ai-summary:${aid}:${lang}`) || 'null') } catch { return null }
+  const readSummaryCache = useCallback((aid, lang, level, focus) => {
+    if (!aid) return null
+    const keys = [`ai-summary:${aid}:${lang}:${level}:${focus}`]
+    if (level === 'medium' && focus === 'balanced') {
+      keys.push(`ai-summary:${aid}:${lang}`)
+    }
+    for (const key of keys) {
+      try {
+        const raw = localStorage.getItem(key)
+        if (!raw) continue
+        const parsed = JSON.parse(raw)
+        if (!parsed) continue
+        if (parsed.level && parsed.level !== level) continue
+        if (parsed.focus && parsed.focus !== focus) continue
+        return parsed
+      } catch (e) {
+        if (import.meta.env.DEV) console.debug('readSummaryCache failed', e)
+      }
+    }
+    return null
   }, [])
-  const writeSummaryCache = useCallback((aid, lang, payload) => {
-    try { localStorage.setItem(`ai-summary:${aid}:${lang}`, JSON.stringify(payload)) } catch (e) { if (import.meta.env.DEV) console.debug('writeSummaryCache failed', e) }
+  const writeSummaryCache = useCallback((aid, lang, level, focus, payload) => {
+    if (!aid) return
+    try {
+      const key = `ai-summary:${aid}:${lang}:${level}:${focus}`
+      const value = JSON.stringify({ ...payload, level, focus, lang })
+      localStorage.setItem(key, value)
+      if (level === 'medium' && focus === 'balanced') {
+        try { localStorage.removeItem(`ai-summary:${aid}:${lang}`) } catch { /* legacy key */ }
+      }
+    } catch (e) { if (import.meta.env.DEV) console.debug('writeSummaryCache failed', e) }
   }, [])
   // Load cached summary on article change
   useEffect(() => {
-    if (!article?.id) return
-    const cache = readSummaryCache(article.id, summaryLang)
+    if (!article?.id) { setSummary(''); return }
+    const cache = readSummaryCache(article.id, summaryLang, summaryLevel, summaryFocus)
     const ver = article.updated_at || article.created_at
     if (cache && cache.updated_at === ver && cache.summary) setSummary(cache.summary)
     else setSummary('')
-  }, [article?.id, article?.updated_at, article?.created_at, readSummaryCache, summaryLang])
+  }, [article?.id, article?.updated_at, article?.created_at, readSummaryCache, summaryLang, summaryLevel, summaryFocus])
 
-  // When language changes and panel is open, auto-fetch if not in cache
+  // When summary preferences change and panel is open, auto-fetch if not in cache
   useEffect(() => {
-    if (!article?.id) return
+    if (!article?.id || summaryBusy) return
     const ver = article.updated_at || article.created_at
-    const cache = readSummaryCache(article.id, summaryLang)
+    const cache = readSummaryCache(article.id, summaryLang, summaryLevel, summaryFocus)
     const has = cache && cache.updated_at === ver && cache.summary
-    if (!has && summaryVisible && !summaryBusy) {
-      summarizeWithAI()
+    if (!has && summaryVisible) {
+      summarizeWithAI(summaryLevel, summaryLang, summaryFocus)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summaryLang])
+  }, [summaryLang, summaryLevel, summaryFocus, summaryVisible, summaryBusy, article?.id, article?.updated_at, article?.created_at])
 
   // Init TTS support + cleanup on unmount
   useEffect(() => {
@@ -516,7 +609,9 @@ export default function Article() {
     if (!ttsSupported || !plainText.trim()) return
     try {
       window.speechSynthesis.cancel()
-      const utter = new SpeechSynthesisUtterance(plainText)
+      const speechText = plainText.replace(/\s*\n\s*/g, ' ').replace(/\s{2,}/g, ' ').trim()
+      if (!speechText) return
+      const utter = new SpeechSynthesisUtterance(speechText)
       utter.rate = rate
       utter.onend = () => { setIsSpeaking(false); setIsPaused(false); utterRef.current = null }
       utter.onerror = () => { setIsSpeaking(false); setIsPaused(false); utterRef.current = null }
@@ -835,17 +930,52 @@ export default function Article() {
         <div className="markdown" style={{ fontSize: `${fontScale}rem`, maxWidth: layoutWidth === 'narrow' ? '740px' : 'none', fontFamily }}>
           {summaryVisible && (
             <div className="section-card" style={{ marginBottom: 16 }}>
-              <div className="page-head" style={{ marginBottom: 8, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+              <div className="page-head" style={{ marginBottom: 8, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
                 <h4 style={{ margin: 0 }}>Summary</h4>
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
                   <div className="btn-group" style={{ display:'inline-flex', gap:8 }}>
                     <button className={`btn ${summaryLang==='English' ? 'active' : ''}`} onClick={()=> setSummaryLang('English')} disabled={summaryBusy}>EN</button>
                     <button className={`btn ${summaryLang==='Bengali' ? 'active' : ''}`} onClick={()=> setSummaryLang('Bengali')} disabled={summaryBusy}>BN</button>
                   </div>
-                  <button className={`btn ${summaryBusy ? 'loading' : ''}`} onClick={()=> summarizeWithAI()} disabled={summaryBusy}>Regenerate</button>
+                  <div className="btn-group" style={{ display:'inline-flex', gap:8 }}>
+                    {SUMMARY_LEVELS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        className={`btn ${summaryLevel===opt.id ? 'active' : ''}`}
+                        onClick={() => setSummaryLevel(opt.id)}
+                        disabled={summaryBusy}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="muted" style={{ display:'flex', alignItems:'center', gap:4, fontSize:'.85rem' }}>
+                    Focus
+                    <select
+                      value={summaryFocus}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (SUMMARY_FOCUS_OPTIONS.some((opt) => opt.id === value)) setSummaryFocus(value)
+                      }}
+                      disabled={summaryBusy}
+                      style={{ padding:'4px 8px', borderRadius:4, minWidth:120 }}
+                    >
+                      {SUMMARY_FOCUS_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className={`btn ${summaryBusy ? 'loading' : ''}`} onClick={() => summarizeWithAI(summaryLevel, summaryLang, summaryFocus)} disabled={summaryBusy}>Regenerate</button>
                   <button className="btn" onClick={copySummary} disabled={!summary || summaryBusy}>Copy</button>
                 </div>
               </div>
+              {!summaryBusy && summary && (
+                <div className="muted" style={{ fontSize: '.85rem', marginBottom: 8 }}>
+                  {summaryLevelLabel} summary | Focus: {summaryFocusLabel}
+                </div>
+              )}
               {summaryBusy ? (
                 <div className="skeleton" aria-hidden="true">
                   <div className="skeleton-line long" style={{ marginBottom: 6 }} />
