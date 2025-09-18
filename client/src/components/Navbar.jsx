@@ -9,9 +9,8 @@ export default function Navbar() {
   const [showNotif, setShowNotif] = useState(false)
   const [notifFilter, setNotifFilter] = useState('all') // all | unread
   const [pfpOk, setPfpOk] = useState(true)
-  const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem('theme') || 'light' } catch { return 'light' }
-  })
+  const [themePref, setThemePref] = useState(() => getInitialThemePreference())
+  const [resolvedTheme, setResolvedTheme] = useState(() => resolveTheme(getInitialThemePreference()))
 
   const onLogout = () => {
     logout()
@@ -29,13 +28,40 @@ export default function Navbar() {
   }, [auth.user])
 
   useEffect(() => {
-    try { localStorage.setItem('theme', theme) } catch (e) { if (import.meta.env.DEV) console.debug('persist theme failed', e) }
+    if (typeof window === 'undefined') return () => {}
+    const resolved = resolveTheme(themePref)
+    setResolvedTheme(resolved)
+    try { localStorage.setItem('theme', themePref) } catch (e) { if (import.meta.env.DEV) console.debug('persist theme failed', e) }
     const root = document.documentElement
-    root.setAttribute('data-theme', theme)
-    // Ensure Tailwind's `dark:` variant works alongside custom CSS theme
-    if (theme === 'dark') root.classList.add('dark')
+    root.setAttribute('data-theme', resolved)
+    if (resolved === 'dark') root.classList.add('dark')
     else root.classList.remove('dark')
-  }, [theme])
+    window.dispatchEvent(new CustomEvent('theme-preference-change', { detail: { preference: themePref, resolved } }))
+    let cleanup = () => {}
+    if (themePref === 'system' && window.matchMedia) {
+      const media = window.matchMedia('(prefers-color-scheme: dark)')
+      const handler = (event) => {
+        const next = event.matches ? 'dark' : 'light'
+        setResolvedTheme(next)
+        root.setAttribute('data-theme', next)
+        if (next === 'dark') root.classList.add('dark')
+        else root.classList.remove('dark')
+      }
+      media.addEventListener('change', handler)
+      cleanup = () => media.removeEventListener('change', handler)
+    }
+    return cleanup
+  }, [themePref])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return () => {}
+    const handler = (event) => {
+      const pref = event.detail?.preference
+      if (pref && pref !== themePref) setThemePref(pref)
+    }
+    window.addEventListener('theme-preference-change', handler)
+    return () => window.removeEventListener('theme-preference-change', handler)
+  }, [themePref])
 
   return (
     <header className="nav">
@@ -67,7 +93,7 @@ export default function Navbar() {
         <div className={`auth ${open ? 'open' : ''}`}>
           {auth.user ? (
             <>
-              <button className="theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
+              <button className="theme-toggle" aria-label={`Toggle theme (current ${resolvedTheme})`} onClick={() => setThemePref(t => t === 'dark' ? 'light' : 'dark')}>
                 <span className="toggle-icon">☀️</span>
                 <span className="toggle-icon">🌙</span>
               </button>
@@ -144,7 +170,7 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <button className="theme-toggle" aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}>
+              <button className="theme-toggle" aria-label={`Toggle theme (current ${resolvedTheme})`} onClick={() => setThemePref(t => t === 'dark' ? 'light' : 'dark')}>
                 <span className="toggle-icon">☀️</span>
                 <span className="toggle-icon">🌙</span>
               </button>
@@ -160,6 +186,19 @@ export default function Navbar() {
       </div>
     </header>
   )
+}
+
+
+function getInitialThemePreference() {
+  if (typeof window === 'undefined') return 'light'
+  try { return localStorage.getItem('theme') || 'light' } catch { return 'light' }
+}
+
+function resolveTheme(preference) {
+  if (preference === 'system' && typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  return preference === 'dark' ? 'dark' : 'light'
 }
 
 function NotifText({ n }) {

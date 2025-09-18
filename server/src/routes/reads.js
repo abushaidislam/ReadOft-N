@@ -44,7 +44,7 @@ router.get('/me', authRequired, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('article_reads')
-      .select('duration_seconds, last_read_at, articles:article_id (id, title)')
+      .select('duration_seconds, last_read_at, articles:article_id (id, title, slug, thumbnail_url, categories)')
       .eq('user_id', req.user.id)
       .order('last_read_at', { ascending: false })
     if (error) throw error
@@ -60,4 +60,5 @@ router.get('/me', authRequired, async (req, res) => {
 })
 
 export default router
+
 

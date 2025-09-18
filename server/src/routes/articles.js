@@ -9,6 +9,56 @@ import { slugify, ensureUniqueSlug } from '../utils/slug.js'
 
 const router = express.Router()
 
+const ARTICLE_DETAIL_SELECT = 'id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,publish_at,published_at,author:users!articles_author_id_fkey(id,name,avatar_url)'
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function httpError(status, message) {
+  const err = new Error(message)
+  err.status = status
+  return err
+}
+
+async function loadArticleDetail(identifier, user) {
+  const isUuid = UUID_REGEX.test(identifier)
+  let query = supabase.from('articles').select(ARTICLE_DETAIL_SELECT)
+  query = isUuid ? query.eq('id', identifier) : query.eq('slug', identifier)
+  const { data: article, error } = await query.maybeSingle()
+  if (error) throw error
+  if (!article) throw httpError(404, 'Not found')
+
+  const viewer = user
+  const now = new Date()
+  if (article.status !== 'published') {
+    if (!viewer || (viewer.id !== article.author_id && viewer.role !== ROLES.ADMIN)) throw httpError(403, 'Forbidden')
+  } else if (article.publish_at && new Date(article.publish_at) > now) {
+    if (!viewer || (viewer.id !== article.author_id && viewer.role !== ROLES.ADMIN)) throw httpError(403, 'Forbidden')
+  }
+
+  try {
+    await supabase.from('article_views').insert({ id: randomUUID(), article_id: article.id, user_id: viewer?.id || null, created_at: new Date() })
+  } catch {}
+
+  let views_count = 0
+  try {
+    const { count } = await supabase.from('article_views').select('id', { count: 'exact', head: true }).eq('article_id', article.id)
+    views_count = count || 0
+  } catch {}
+
+  const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>]/g, ' ')
+  const words = sanitize(article.content).trim().split(/\s+/).filter(Boolean).length
+  const reading_time = Math.max(1, Math.round(words / 200))
+
+  return { ...article, reading_time, views_count }
+}
+
+function handleArticleError(error, res, fallback) {
+  if (error?.status) {
+    return res.status(error.status).json({ message: error.message })
+  }
+  console.error(fallback, error)
+  return res.status(500).json({ message: fallback })
+}
+
 // Public: list published articles with optional filters
 router.get('/', authOptional, async (req, res) => {
   try {
@@ -155,38 +205,10 @@ router.post('/:id/preview', authRequired, requireRole(ROLES.AUTHOR, ROLES.ADMIN)
 // Get single article by id (published or owned by author/admin)
 router.get('/:id', authOptional, async (req, res) => {
   try {
-    const id = req.params.id
-    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,publish_at,published_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
-    const { data: article, error } = await supabase.from('articles').select(select).eq('id', id).maybeSingle()
-    if (error) throw error
-    if (!article) return res.status(404).json({ message: 'Not found' })
-    if (article.status !== 'published') {
-      const u = req.user
-      if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
-    } else {
-      const now = new Date()
-      if (article.publish_at && new Date(article.publish_at) > now) {
-        const u = req.user
-        if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
-      }
-    }
-    // Best-effort: record a view and attach reading_time
-    try { await supabase.from('article_views').insert({ id: randomUUID(), article_id: id, user_id: req.user?.id || null, created_at: new Date() }) } catch {}
-    const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
-    const words = sanitize(article.content).trim().split(/\s+/).filter(Boolean).length
-    const reading_time = Math.max(1, Math.round(words / 200))
-    let views_count = 0
-    try {
-      const { count: c } = await supabase
-        .from('article_views')
-        .select('id', { count: 'exact', head: true })
-        .eq('article_id', id)
-      views_count = c || 0
-    } catch {}
-    res.json({ ...article, reading_time, views_count })
+    const article = await loadArticleDetail(req.params.id, req.user)
+    res.json(article)
   } catch (e) {
-    console.error(e)
-    res.status(500).json({ message: 'Failed to fetch article' })
+    handleArticleError(e, res, 'Failed to fetch article')
   }
 })
 
@@ -414,41 +436,13 @@ router.post('/:id/reject', authRequired, requireRole(ROLES.ADMIN), async (req, r
   }
 })
 
-export default router
 // Get by slug
 router.get('/slug/:slug', authOptional, async (req, res) => {
   try {
-    const slug = req.params.slug
-    const select = `id,slug,title,content,author_id,status,tags,categories,thumbnail_url,thumbnail_path,like_count,created_at,updated_at,publish_at,published_at,author:users!articles_author_id_fkey(id,name,avatar_url)`
-    const { data: article, error } = await supabase.from('articles').select(select).eq('slug', slug).maybeSingle()
-    if (error) throw error
-    if (!article) return res.status(404).json({ message: 'Not found' })
-    if (article.status !== 'published') {
-      const u = req.user
-      if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
-    } else {
-      const now = new Date()
-      if (article.publish_at && new Date(article.publish_at) > now) {
-        const u = req.user
-        if (!u || (u.id !== article.author_id && u.role !== ROLES.ADMIN)) return res.status(403).json({ message: 'Forbidden' })
-      }
-    }
-    // Best-effort: record a view and attach reading_time
-    try { await supabase.from('article_views').insert({ id: randomUUID(), article_id: article.id, user_id: req.user?.id || null, created_at: new Date() }) } catch {}
-    const sanitize = (txt) => String(txt || '').replace(/<[^>]+>/g, ' ').replace(/[#!*_>`]/g, ' ')
-    const words = sanitize(article.content).trim().split(/\s+/).filter(Boolean).length
-    const reading_time = Math.max(1, Math.round(words / 200))
-    let views_count = 0
-    try {
-      const { count: c } = await supabase
-        .from('article_views')
-        .select('id', { count: 'exact', head: true })
-        .eq('article_id', article.id)
-      views_count = c || 0
-    } catch {}
-    res.json({ ...article, reading_time, views_count })
+    const article = await loadArticleDetail(req.params.slug, req.user)
+    res.json(article)
   } catch (e) {
-    res.status(500).json({ message: 'Failed to fetch by slug' })
+    handleArticleError(e, res, 'Failed to fetch by slug')
   }
 })
 
@@ -560,3 +554,4 @@ router.get('/:id/related', authOptional, async (req, res) => {
     res.status(500).json({ message: 'Failed to load related' })
   }
 })
+export default router
