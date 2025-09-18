@@ -1,0 +1,29 @@
+﻿services:
+  api:
+    build:
+      context: ./server
+      target: development
+    env_file:
+      - ./server/.env
+    environment:
+      NODE_ENV: development
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+  web:
+    build:
+      context: ./client
+      target: development
+    env_file:
+      - ./client/.env
+    environment:
+      NODE_ENV: development
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    volumes:
+      - ./client:/app
+      - /app/node_modules

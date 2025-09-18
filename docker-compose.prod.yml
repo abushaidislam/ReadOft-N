@@ -1,0 +1,23 @@
+﻿services:
+  api:
+    build:
+      context: ./server
+      target: production
+    env_file:
+      - ./server/.env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
+  web:
+    build:
+      context: ./client
+      target: production
+    env_file:
+      - ./client/.env
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
