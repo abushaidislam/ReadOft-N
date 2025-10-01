@@ -30,19 +30,36 @@ import tokenRoutes from './routes/tokens.js'
 const app = express()
 const PORT = process.env.PORT || 4000
 
-app.use(cors({ 
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174', 
-    'http://localhost:5175',
-    'http://localhost:5176',
-    'http://localhost:3000',
-    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [])
-  ], 
+const defaultCorsOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:5176',
+  'http://localhost:3000'
+]
+
+const extraCorsOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean)
+
+const allowedOrigins = new Set([...defaultCorsOrigins, ...extraCorsOrigins])
+const NGROK_DOMAIN_REGEX = /^https:\/\/[a-z0-9-]+\.(ngrok-free\.app|ngrok-free\.dev|ngrok\.app)$/i
+
+const corsOptions = {
+  // Allow local dev hosts and ephemeral ngrok tunnels while keeping production tight
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.has(origin)) return callback(null, true)
+    if (NGROK_DOMAIN_REGEX.test(origin)) return callback(null, true)
+    return callback(new Error(`Origin ${origin} not allowed by CORS`))
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
-}))
+}
+
+app.use(cors(corsOptions))
 app.use(express.json({ limit: '1mb' }))
 app.use(authOptional)
 

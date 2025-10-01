@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Subnav from './components/Subnav.jsx'
 import Footer from './components/Footer.jsx'
+import ScrollTopButton from './components/ScrollTopButton.jsx'
 import Home from './pages/Home'
 import Categories from './pages/Categories'
 import Category from './pages/Category'
@@ -89,6 +90,7 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <ScrollTopButton />
       <Footer />
     </BrowserRouter>
   )

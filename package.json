@@ -9,5 +9,14 @@
     "mongoose": "^8.18.0",
     "uuid": "^12.0.0",
     "web-push": "^3.6.7"
+  },
+  "scripts": {
+    "client:dev": "npm run dev --prefix client",
+    "dev": "concurrently -c \"auto\" -n server,client,ngrok \"npm:server:dev\" \"npm:client:dev\" \"npm:ngrok:start\"",
+    "server:dev": "npm run dev --prefix server",
+    "ngrok:start": "ngrok start --config ngrok.yml --all"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
   }
 }

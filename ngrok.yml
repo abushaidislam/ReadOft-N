@@ -1,0 +1,11 @@
+version: "2"
+region: us
+tunnels:
+  server:
+    proto: http
+    addr: 4000
+    host_header: rewrite
+  client:
+    proto: http
+    addr: 5173
+    host_header: rewrite

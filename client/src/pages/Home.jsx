@@ -18,11 +18,9 @@ export default function Home() {
   const [page, setPage] = useState(1)
   const [pageInfo, setPageInfo] = useState(null)
   const [sort, setSort] = useState('-created_at') // '-created_at' | '-like_count'
+  const [featured, setFeatured] = useState([])
+  const [featuredLoading, setFeaturedLoading] = useState(true)
   const [period, setPeriod] = useState('') // '', 'week', 'month'
-  const [muted, setMuted] = useState(() => {
-    try { return localStorage.getItem('heroMuted') !== 'false' } catch { return true }
-  })
-  const heroVideoRef = useRef(null)
   const heroSearchRef = useRef(null)
   const sentinelRef = useRef(null)
   const [suggestions, setSuggestions] = useState([])
@@ -61,7 +59,28 @@ export default function Home() {
   useEffect(() => { fetchData(page === 1).catch(console.error) }, [page])
   useEffect(() => { setPage(1); fetchData(true).catch(console.error) }, [sort, period])
   useEffect(() => { request('/categories', { noGlobalLoading: true }).then(setCategories).catch(() => {}) }, [])
-  useEffect(() => { try { localStorage.setItem('heroMuted', String(muted)) } catch {} }, [muted])
+  useEffect(() => {
+    let active = true
+    setFeaturedLoading(true)
+    const params = new URLSearchParams({ limit: '4', sort: '-like_count', page: '1', period: 'week' })
+    request(`/articles?${params.toString()}`, { noGlobalLoading: true })
+      .then((data) => {
+        if (!active) return
+        const list = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : [])
+        const unique = []
+        const seen = new Set()
+        for (const item of list) {
+          if (!item?.id || seen.has(item.id)) continue
+          seen.add(item.id)
+          unique.push(item)
+          if (unique.length >= 4) break
+        }
+        setFeatured(unique)
+      })
+      .catch(() => { if (active) setFeatured([]) })
+      .finally(() => { if (active) setFeaturedLoading(false) })
+    return () => { active = false }
+  }, [request])
   useMeta({ title: `${import.meta.env.VITE_APP_NAME || 'Readoft'} — Discover our Recent blog article`, description: 'Find the perfect service for your project.', canonical: '/' })
 
   // live suggestions for hero search (articles + categories + authors)
@@ -120,39 +139,25 @@ export default function Home() {
   return (
     <>
       <section className="hero">
-        {/* Background video */}
-        <video
-          className="hero-video-blur"
-          src="/Hero (1).mp4"
-          muted
-          autoPlay
-          loop
-          playsInline
-          preload="auto"
+        {/* Hero imagery */}
+        <img
+          src="/hero-bg.jpg"
+          alt=""
+          className="hero-media-blur"
           aria-hidden="true"
+          decoding="async"
+          loading="eager"
         />
-        <video
-          ref={heroVideoRef}
-          className="hero-video-bg"
-          src="/Hero (1).mp4"
-          muted={muted}
-          autoPlay
-          loop
-          playsInline
-          preload="auto"
-          aria-hidden="true"
+        <img
+          src="/hero-bg.jpg"
+          alt="Creative readers collaborating in a cozy workspace"
+          className="hero-media"
+          decoding="async"
+          loading="eager"
+          fetchpriority="high"
         />
         <div className="hero-overlay" aria-hidden="true" />
-        <button
-          type="button"
-          className="hero-audio-toggle"
-          aria-label={muted ? 'Unmute hero video' : 'Mute hero video'}
-          onClick={() => setMuted((m) => !m)}
-        >
-          {muted ? 'Sound Off' : 'Sound On'}
-        </button>
-        <div className="container">
-          <div className="hero-inner">
+        <div className="container hero-inner">
             <h1 className="hero-title">Discover our Recent Blog Article</h1>
             <form ref={heroSearchRef} className="hero-search" onSubmit={onHeroSearch} role="search" aria-label="Search services">
               <Search className="hero-search-icon" aria-hidden="true" />
@@ -230,11 +235,42 @@ export default function Home() {
                 <li>Payoneer</li>
               </ul>
             </div>
-          </div>
         </div>
         <div className="hero-glow" aria-hidden="true" />
       </section>
       <div className="container page">
+      {(featuredLoading || featured.length > 0) && (
+        <section className="featured-wrap" aria-labelledby="featured-heading">
+          <div className="featured-head">
+            <h2 id="featured-heading">Featured stories</h2>
+            <button
+              className="btn btn-link"
+              type="button"
+              onClick={() => { setSort('-like_count'); setPeriod('week'); setPage(1); const el = document.getElementById('feed'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+            >
+              View trending
+              <ArrowRight size={16} aria-hidden />
+            </button>
+          </div>
+          {featuredLoading ? (
+            <div className="featured-grid">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div className="featured-card skeleton" key={`featured-skel-${i}`}>
+                  <div className="skeleton-thumb" />
+                  <div className="skeleton-line w-80" />
+                  <div className="skeleton-line w-60" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="featured-grid">
+              {featured.map((story, idx) => (
+                <ArticleCard key={story.id} article={story} index={idx} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
       <div className="tabs" style={{ marginTop: 12 }}>
         <button className={`tab ${sort === '-created_at' && !period ? 'active' : ''}`} onClick={() => { setSort('-created_at'); setPeriod(''); setPage(1) }}>Latest</button>
         <button className={`tab ${sort === '-like_count' && !period ? 'active' : ''}`} onClick={() => { setSort('-like_count'); setPeriod(''); setPage(1) }}>Trending</button>

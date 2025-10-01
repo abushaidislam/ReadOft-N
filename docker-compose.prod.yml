@@ -1,4 +1,4 @@
-﻿services:
+services:
   api:
     build:
       context: ./server
@@ -7,6 +7,10 @@
       - ./server/.env
     environment:
       NODE_ENV: production
+      # Allow requests from the frontend origin served by Nginx
+      CORS_ORIGIN: http://localhost:8080
+      # Used by SEO endpoints and email links to build absolute URLs
+      PUBLIC_BASE_URL: http://localhost:8080
     ports:
       - "4000:4000"
   web:

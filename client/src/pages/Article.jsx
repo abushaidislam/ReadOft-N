@@ -84,6 +84,8 @@ export default function Article() {
   const [progress, setProgress] = useState(0)
   const [related, setRelated] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
+  const [discover, setDiscover] = useState([])
+  const [discoverLoading, setDiscoverLoading] = useState(false)
   // TL;DR summary state
   const [summary, setSummary] = useState('')
   const [summaryBusy, setSummaryBusy] = useState(false)
@@ -196,6 +198,29 @@ export default function Article() {
       })
       .finally(() => setLoading(false))
   }, [id, slug, getOfflineArticle])
+
+  useEffect(() => {
+    if (!article?.id) {
+      setDiscover([])
+      setDiscoverLoading(false)
+      return
+    }
+    let active = true
+    setDiscoverLoading(true)
+    const params = new URLSearchParams({ limit: '6', sort: '-like_count', page: '1', period: 'week' })
+    requestRef.current(`/articles?${params.toString()}`, { noGlobalLoading: true })
+      .then((res) => {
+        if (!active) return
+        const items = Array.isArray(res?.items) ? res.items : []
+        const seen = new Set([article.id])
+        related.forEach((r) => { if (r?.id) seen.add(r.id) })
+        const picks = items.filter((item) => item?.id && !seen.has(item.id))
+        setDiscover(picks.slice(0, 4))
+      })
+      .catch(() => { if (active) setDiscover([]) })
+      .finally(() => { if (active) setDiscoverLoading(false) })
+    return () => { active = false }
+  }, [article?.id, article?.updated_at, article?.created_at, related])
 
   useEffect(() => {
     startRef.current = Date.now()
@@ -1071,6 +1096,28 @@ export default function Article() {
           ) : (
             <div className="grid">
               {related.map((a, idx) => (
+                <ArticleCard key={a.id} article={a} index={idx} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+      {(discoverLoading || discover.length > 0) && (
+        <section style={{ marginTop: 24 }}>
+          <h3 style={{ marginTop: 0 }}>Discover more stories</h3>
+          {discoverLoading ? (
+            <div className="grid">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div className="card skeleton" key={`discover-skel-${i}`}>
+                  <div className="skeleton-thumb" />
+                  <div className="skeleton-line w-80" />
+                  <div className="skeleton-line w-60" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid">
+              {discover.map((a, idx) => (
                 <ArticleCard key={a.id} article={a} index={idx} />
               ))}
             </div>
